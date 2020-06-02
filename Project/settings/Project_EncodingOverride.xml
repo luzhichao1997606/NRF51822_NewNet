@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+
+<userOverrides>
+  <override>
+    <path>C:\Users\Administrator\Desktop\NRF51822_4438\Source\App\app.c</path>
+    <encoding>System</encoding>
+  </override>
+  <override>
+    <path>C:\Users\Administrator\Desktop\NRF51822_4438\Source\App\nrf51_it.c</path>
+    <encoding>System</encoding>
+  </override>
+  <override>
+    <path>C:\Users\Administrator\Desktop\NRF51822_4438\Source\App\nrf_it.c</path>
+    <encoding>System</encoding>
+  </override>
+  <override>
+    <path>C:\Users\Administrator\Desktop\NRF51822_4438\Source\Hal\hal.c</path>
+    <encoding>System</encoding>
+  </override>
+  <override>
+    <path>C:\Users\Administrator\Desktop\NRF51822_4438\Source\Hal\simple_uart.c</path>
+    <encoding>System</encoding>
+  </override>
+  <override>
+    <path>C:\Users\Administrator\Desktop\NRF51822_4438\Source\Rf\rf.c</path>
+    <encoding>System</encoding>
+  </override>
+  <override>
+    <path>C:\Users\Administrator\Desktop\NRF51822_4438\Source\Rf\rf.h</path>
+    <encoding>System</encoding>
+  </override>
+  <override>
+    <path>E:\nRF51822\NRF51822_4438 20171207 IAR&#x5De5;&#x7A0B;4438&#x65e0;&#x7eBF;&#x4e32;&#x53e3;&#x53eF;&#x4ee5;&#x5BF9;&#x53D1;\NRF51822_4438\Source\App\nrf_it.c</path>
+    <encoding>System</encoding>
+  </override>
+</userOverrides>
+
+

@@ -1,0 +1,52 @@
+syntax = "proto3";
+//option optimize_for = LITE_RUNTIME;
+//package UserInformation;
+
+
+//卡片信息
+message Card {
+	int32	CardSN = 1;//卡片包序号
+	string	CardID = 2;	//卡片id "1234"
+	int32	CardRssi = 3;	//卡片RSSI
+    int32	CardPower = 4;	//卡片电量
+	string	NodeID_1 = 5;	//定位基站id "0001"
+	int32	NodeRssi_1 = 6;	//定位基站RSSI
+    int32	NodePower_1 = 7;	//定位基站电池状态
+	string	NodeID_2 = 8;	//定位基站id
+	int32	NodeRssi_2 = 9;	//定位基站RSSI
+	int32	NodePower_2 = 10;	//定位基站电池状态
+	string	NodeID_3 = 11;	//定位基站id
+	int32	NodeRssi_3 = 12;	//定位基站RSSI
+	int32	NodePower_3 = 13;	//定位基站电池状态
+	string	NodeID_4 = 14;	//定位基站id
+	int32	NodeRssi_4 = 15;//定位基站RSSI
+	int32	NodePower_4 = 16;	//定位基站电池状态
+	string	NodeID_5 = 17;	//定位基站id
+	int32	NodeRssi_5 = 18;//定位基站RSSI
+    int32	NodePower_5 = 19;	//定位基站电池状态
+}
+
+//Topic：/WSN_DW01/${CenterID}/event/Data		//发布数据包
+//数据类型
+message UserInformation {
+	string	ProtocolType = 1;	//协议类型
+	repeated	Card CardList = 2;	//卡片信息列表
+}
+
+//Topic：/WSN_DW01/${CenterID}/event/Heartbeat		//发布心跳包
+//数据类型
+message Heartbeat {
+	string	ProtocolType = 1;	//协议类型
+	int32	Heartbeat = 2;		//心跳包序号
+	string	ProductType = 3;	//产品型号
+	string	SoftVersion = 4;	//软件版本
+	int32	ConfigTag = 5;		//配置参数标识，如果与后台保存的不一致，后台重新下发参数
+	
+	//以下字段适用于ProtocolType:"GPRS"
+	string	LAC = 6;			// 当前位置区ID
+	string	CID = 7;			// 当前小区ID
+	int32	CSQ = 8;			// 信号强度
+	string	IMEI = 9;			// 设备IMEI号
+	string	IMSI = 10;			// 设备IMSI号
+	
+}
