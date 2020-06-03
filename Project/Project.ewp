@@ -337,6 +337,7 @@
           <state>$PROJ_DIR$\..\Source\w5500\Internet\MQTT</state>
           <state>$PROJ_DIR$\..\Source\cJSON</state>
           <state>$PROJ_DIR$\..\Source\protobuf_c</state>
+          <state>$PROJ_DIR$\..\Source\nrf24l01</state>
         </option>
         <option>
           <name>CCStdIncCheck</name>
@@ -2067,6 +2068,12 @@
     </file>
   </group>
   <group>
+    <name>NRF24L01</name>
+    <file>
+      <name>$PROJ_DIR$\..\Source\nrf24l01\nrf24l01+.c</name>
+    </file>
+  </group>
+  <group>
     <name>nRF_Radio</name>
     <file>
       <name>$PROJ_DIR$\..\Source\App\radio_config.c</name>
@@ -2077,11 +2084,11 @@
   </group>
   <group>
     <name>Rf</name>
-    <excluded>
-      <configuration>Debug</configuration>
-    </excluded>
     <file>
       <name>$PROJ_DIR$\..\Source\Rf\Radio.c</name>
+      <excluded>
+        <configuration>Debug</configuration>
+      </excluded>
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\Rf\radio.h</name>
@@ -2094,24 +2101,36 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\Rf\sx1276.c</name>
+      <excluded>
+        <configuration>Debug</configuration>
+      </excluded>
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\Rf\sx1276.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\Rf\sx1276_fsk.c</name>
+      <excluded>
+        <configuration>Debug</configuration>
+      </excluded>
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\Rf\sx1276_fsk.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\Rf\sx1276_hal.c</name>
+      <excluded>
+        <configuration>Debug</configuration>
+      </excluded>
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\Rf\sx1276_hal.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\Rf\sx1276_lora.c</name>
+      <excluded>
+        <configuration>Debug</configuration>
+      </excluded>
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\Rf\sx1276_lora.h</name>

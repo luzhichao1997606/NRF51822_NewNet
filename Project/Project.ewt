@@ -2209,6 +2209,12 @@
     </file>
   </group>
   <group>
+    <name>NRF24L01</name>
+    <file>
+      <name>$PROJ_DIR$\..\Source\nrf24l01\nrf24l01+.c</name>
+    </file>
+  </group>
+  <group>
     <name>nRF_Radio</name>
     <file>
       <name>$PROJ_DIR$\..\Source\App\radio_config.c</name>

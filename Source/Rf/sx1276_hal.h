@@ -29,8 +29,8 @@
 //#define  VER_A10
 
 #ifdef SRWF_2E80A
-#define XTAL_FREQ                      32000000
-#define FREQ_STEP                     	 61.03515625 
+#define XTAL_FREQ           32000000
+#define FREQ_STEP           61.03515625 
 
 //#define XTAL_FREQ                      30000000//32000000
 //#define FREQ_STEP                     	 57.22045898//61.03515625 

@@ -440,9 +440,9 @@ uint8_t MQTT_Resv_Read_data = 	0;
 //Updata 订阅解析
 uint8_t MQTT_Resv_Cycle 	= 	1; // 上报周期，单位分钟，1~255
 uint8_t MQTT_Resv_AlarmTime =	10;// 报警持续时间，单位分钟，0~255，0不报警，255持续报警 
-uint8_t MQTT_Resv_Channel   =	12;// 工作信道
-uint8_t MQTT_Resv_SensorNum =	40;// 1-240 该数传设备下面的采集模块数量
-uint8_t MQTT_Resv_SensorCycle =	35;// 传感器上报周期，单位分钟，10~255，最低10分钟  
+uint8_t MQTT_Resv_Channel   =	1;// 工作信道（传参到NRF24L01）
+uint8_t MQTT_Resv_SensorNum =	40;// 1-240 该数传设备下面的采集模块数量(配置数组)
+uint8_t MQTT_Resv_SensorCycle =	35;// 传感器上报周期，单位分钟，10~255，最低10分钟(清除数组数据) 
 int Unpack_json_MQTT_ResvData(uint8 * ResvData)
 {
 	cJSON *json;

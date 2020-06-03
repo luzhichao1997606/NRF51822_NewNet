@@ -1,0 +1,205 @@
+/******************************************************************************
+* File        : nrf24l01+.c
+* Author      : Lihao
+* DESCRIPTION :
+*
+******************************* Revision History *******************************
+* No.   Version   Date          Modified By   Description               
+* 1     V1.0      2011-05-01    Lihao         Original Version
+*******************************************************************************/
+
+/******************************************************************************/
+/***        Include files                                                   ***/
+/******************************************************************************/
+#include "common.h"
+#include "hal.h"
+#include "nrf24l01+.h"
+#include "app_api.h"
+
+/******************************************************************************/
+/***        Macro Definitions                                               ***/
+/******************************************************************************/
+
+/******************************************************************************/
+/***        Type Definitions                                                ***/
+/******************************************************************************/
+
+/******************************************************************************/
+/***        Local Function Prototypes                                       ***/
+/******************************************************************************/
+
+/******************************************************************************/
+/***        Exported Variables                                              ***/
+/******************************************************************************/
+
+/******************************************************************************/
+/***        Local Variables                                                 ***/
+/******************************************************************************/
+uint8 rx_buf[RF_LEN_PAYLOAD];  //接收缓冲区
+
+/******************************************************************************/
+/***        Exported Functions                                              ***/
+/******************************************************************************/
+// RF初始化
+uint8 u8RF_Init_Num=0;
+void nRF24L01_Init(void)
+{
+	uint8 u8temp;
+	uint8 u8channel;	
+    if(FALSE == nRF24L01_Check())
+	{
+////		LED1_Off();
+////		LED2_Off();
+////		while(1);
+		u8RF_Init_Num++;
+		if(u8RF_Init_Num > 10)
+		{
+			WWDG_SWReset();	// 强制复位一次
+//			u8RF_Init_Num = 0;
+//			return;
+		}
+		hal_Delay1ms(65);
+		nRF24L01_Init();//24L01校验失败，重新初始化
+	}
+	if(punModuleParam->stWorkParam.u8EndID%2 != 0)	// 奇数ID
+		u8channel = (((punModuleParam->stWorkParam.u8NrfChannel-1)%2==0)?
+					(2*(punModuleParam->stWorkParam.u8NrfChannel-1)):(2*(punModuleParam->stWorkParam.u8NrfChannel-1)-1));
+	else
+		u8channel = (((punModuleParam->stWorkParam.u8NrfChannel-1)%2==0)?
+					(2*(punModuleParam->stWorkParam.u8NrfChannel-1)+2):(2*(punModuleParam->stWorkParam.u8NrfChannel-1)+1));
+    halSpiWriteByte(SETUP_RETR, 0x10);   //不重发       // 自动重发延时500us + 86us, 自动重发计数10次
+    halSpiWriteByte(SETUP_AW, RF_LEN_ADDR);     // 设置发送/接收地址长度
+    halSpiWriteByte(RX_PW_P0, RF_LEN_PAYLOAD);  // 设置通道0数据包长度    
+  	halSpiWriteByte(EN_RXADDR, 0x01);           // 接收通道0使能
+	halSpiWriteByte(EN_AA, 0x00);       //关闭自动应答        // 使能通道0接收自动应答
+	halSpiWriteByte(FEATURE, 0x01);             // 使能W_TX_PAYLOAD_NOACK命令
+	halSpiWriteByte(RF_CH, u8channel);         // 选择射频工作频道0(0-127)  
+    halSpiWriteByte(RF_SETUP, 0x21|((punModuleParam->stWorkParam.u8RfPower-1)<<1));            // 0db, 250Kbps
+	u8temp = halSpiReadByte(RX_PW_P0);
+//    nRF24L01_EnterRxMode();	
+	NRF_LowPower_Mode();
+}
+
+
+void NRF_TEST_Mode(void)
+{
+	halSpiWriteByte(CONFIG, 0x0E);  // 进入发射模式
+	hal_Delay1ms(2);
+	halSpiWriteByte(RF_SETUP, 0xB1|((punModuleParam->stWorkParam.u8RfPower-1)<<1));            // 0db, 250Kbps
+	nRF24L01_CE_HIGH();
+}
+
+
+//检测24L01是否存在
+//返回值:TRUE，成功; FALSE，失败	
+uint8 nRF24L01_Check(void)
+{
+	uint8 i;
+	uint8 buf[5] = {0XA5,0XA5,0XA5,0XA5,0XA5};	
+
+	halSpiWriteBuf(TX_ADDR,buf, 5); //写入5个字节的地址.	
+	halSpiReadBuf(TX_ADDR, buf, 5); //读出写入的地址  
+	for(i = 0; i < 5; i++)
+	{
+		if(buf[i] != 0XA5) 
+			return FALSE;
+	}
+	
+	return TRUE;  // 检测到24L01
+}
+
+//  进入接收模式
+void nRF24L01_EnterRxMode(void)
+{
+	uint8 u8channel;
+	if(punModuleParam->stWorkParam.u8EndID%2 != 0)	// 奇数ID
+		u8channel = (((punModuleParam->stWorkParam.u8NrfChannel-1)%2==0)?
+					(2*(punModuleParam->stWorkParam.u8NrfChannel-1)):(2*(punModuleParam->stWorkParam.u8NrfChannel-1)-1));
+	else
+		u8channel = (((punModuleParam->stWorkParam.u8NrfChannel-1)%2==0)?
+					(2*(punModuleParam->stWorkParam.u8NrfChannel-1)+2):(2*(punModuleParam->stWorkParam.u8NrfChannel-1)+1));
+	nRF24L01_CE_LOW();
+	halSpiWriteByte(RF_CH, u8channel);         // 选择射频工作频道0(0-127)  
+	halSpiWriteBuf(RX_ADDR_P0, BusAddr, RF_LEN_ADDR);  // 设置通道0接收地址
+	halSpiWriteByte(FLUSH_TX, 0);   // 清除TX FIFO寄存器
+	halSpiWriteByte(FLUSH_RX, 0);   // 清除RX FIFO寄存器	
+	halSpiWriteByte(STATUS, 0x70);  // 清中断标志
+  	halSpiWriteByte(CONFIG, 0x0F);  // 使能接收模式  	
+	nRF24L01_CE_HIGH();
+}
+
+// nRF24L01+发送接口
+void nRF24L01_Tx(const uint8 *dstAddr, const uint8 *pbuf, uint8 u8Len, uint8 u8channel)
+{  
+//	uint8 u8channel;
+//	if(punModuleParam->stWorkParam.u8EndID%2 != 0)	// 奇数ID
+//		u8channel = (((punModuleParam->stWorkParam.u8NrfChannel-1)%2==0)?
+//					(2*(punModuleParam->stWorkParam.u8NrfChannel-1)):(2*(punModuleParam->stWorkParam.u8NrfChannel-1)-1));
+//	else
+//		u8channel = (((punModuleParam->stWorkParam.u8NrfChannel-1)%2==0)?
+//					(2*(punModuleParam->stWorkParam.u8NrfChannel-1)+2):(2*(punModuleParam->stWorkParam.u8NrfChannel-1)+1));
+	nRF24L01_CE_LOW();
+	halSpiWriteByte(RF_CH, u8channel);         // 选择射频工作频道0(0-127)  
+	halSpiWriteByte(FLUSH_TX, 0);   // 清除TX FIFO寄存器
+	halSpiWriteByte(FLUSH_RX, 0);   // 清除RX FIFO寄存器
+	halSpiWriteBuf(TX_ADDR,    dstAddr, RF_LEN_ADDR); // 设置目标地址
+	halSpiWriteBuf(RX_ADDR_P0, dstAddr, RF_LEN_ADDR); // 设置接收ACk地址
+    
+	//halSpiWriteBuf(WR_TX_PLOAD, pbuf, RF_LEN_PAYLOAD); // 需要ACK
+    halSpiWriteBuf(WR_NAC_TX_PLOAD, pbuf, RF_LEN_PAYLOAD);  // 不需要ACK
+	
+	halSpiWriteByte(STATUS, 0x70);  // 清中断标志
+	halSpiWriteByte(CONFIG, 0x0E);  // 进入发射模式
+    nRF24L01_CE_HIGH();              // 至少保持10us以上，将数据发送出去
+}
+
+
+void NRF_LowPower_Mode(void)
+{
+	uint8 u8temp;     
+	u8temp = halSpiReadByte(CONFIG);	
+	halSpiWriteByte(CONFIG, u8temp & ( ~( 1<<1 ) ));  //配置工作模式:掉电模式 
+//	u8temp = halSpiReadByte(CONFIG);
+	nRF24L01_CE_LOW();         
+}
+//发完数据之后，执行NRF_LowPower_Mode，在下次发送之前，重新配置为发送模式
+
+// RF芯片中断事件
+void nRF24L01_IRQ(void)
+{
+	uint8 u8State;
+	u8State = halSpiReadByte(STATUS);	
+	if(u8State & 0x40)  				   
+	{	// 接收成功
+		halSpiReadBuf(RD_RX_PLOAD, rx_buf, RF_LEN_PAYLOAD);
+//		rfRx(rx_buf, RF_LEN_PAYLOAD);
+	}
+	else if(u8State & 0x10) 
+	{	//发射达到最大复发次数
+		stRf.RfState = 0;
+		NRF_LowPower_Mode();
+		
+		stRf.u16Timer = 0;
+	}
+	else if(u8State & 0x20)
+	{	// 发送成功	
+		NRF_LowPower_Mode();
+		stRf.RfState = 0;
+		stRf.u16Timer = 0;
+//		u8SleepFlag = 0;
+	}
+	else
+	{
+		NRF_LowPower_Mode();
+//		nRF24L01_EnterRxMode(); // 进入接收模式
+	}
+}
+
+/******************************************************************************/
+/***        Local Functions                                                 ***/
+/******************************************************************************/
+
+/******************************************************************************/
+/***        END OF FILE                                                     ***/
+/******************************************************************************/
+

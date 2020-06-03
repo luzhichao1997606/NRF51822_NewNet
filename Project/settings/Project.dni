@@ -143,7 +143,7 @@ TraceBufferSize=0x00000000
 TraceShowTime=0
 TraceShowTimeFreq=1000000
 [DebugChecksum]
-Checksum=-1640224142
+Checksum=1413882376
 [CodeCoverage]
 Enabled=_ 0
 [Exceptions]
@@ -224,23 +224,6 @@ Fmt3={W}42:LoopEventstmp	1	0
 [Trace1]
 Enabled=0
 ShowSource=1
-[Log file]
-LoggingEnabled=_ 0
-LogFile=_ ""
-Category=_ 0
-[TermIOLog]
-LoggingEnabled=_ 0
-LogFile=_ ""
-[DriverProfiling]
-Enabled=0
-Mode=1
-Graph=0
-Symbiont=0
-Exclusions=
-[CallStackLog]
-Enabled=0
-[CallStackStripe]
-ShowTiming=1
 [Disassemble mode]
 mode=0
 [Breakpoints2]
@@ -284,9 +267,30 @@ Bp36=_ 0 "EMUL_CODE" "{}.217.9" 0 0 1 "" 0 "" 0
 Bp37=_ 0 "EMUL_CODE" "{}.196.9" 0 0 1 "" 0 "" 0
 Bp38=_ 0 "EMUL_CODE" "{}.729.2" 0 0 1 "" 0 "" 0
 Bp39=_ 0 "EMUL_CODE" "{}.455.13" 0 0 1 "" 0 "" 0
-Count=40
+Bp40=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\Source\nrf24l01\nrf24l01+.c}.258.2" 0 0 1 "" 0 "" 0
+Bp41=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\Source\nrf24l01\nrf24l01+.c}.285.11" 0 0 1 "" 0 "" 0
+Bp42=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\Source\App\nrf_it.c}.88.5" 0 0 1 "" 0 "" 0
+Bp43=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\Source\App\nrf_it.c}.93.5" 0 0 1 "" 0 "" 0
+Count=44
+[Log file]
+LoggingEnabled=_ 0
+LogFile=_ ""
+Category=_ 0
+[TermIOLog]
+LoggingEnabled=_ 0
+LogFile=_ ""
 [Aliases]
 A0=_ "C:\Users\Administrator\Desktop\Center 20171208\Source\App\main.c" ""
 A1=_ "C:\Users\Administrator\Desktop\Center 20171208\Source\Rf\radio_comm.c" ""
 Count=2
 SuppressDialog=1
+[DriverProfiling]
+Enabled=0
+Mode=1
+Graph=0
+Symbiont=0
+Exclusions=
+[CallStackLog]
+Enabled=0
+[CallStackStripe]
+ShowTiming=1

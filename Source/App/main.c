@@ -26,6 +26,7 @@
 //#include "net.h"          //包含需要的头文件
 
 
+#include "nrf24l01+.h"
 #include "w5500.h"
 #include "wizchip_conf.h"
 #include "socket.h"
@@ -34,7 +35,7 @@
 
 
 #include "string.h"       //包含需要的头文件
-//#include "SPI1.h"
+#include "SPI1.h"	
 
 #include "nrf_drv_wdt.h"
 
@@ -80,15 +81,52 @@ uint8_t		Read_ID[16] ;
 bool Flag = false;
 char id[6];
 bool Result ;
+
+ /**
+  * @name: NRF_Init_Result_Num
+  * @test:  
+  * @msg: 	初始化NRF24l01
+  * @param  {NRF_NUM}  : 选择具体的初始化的编号
+  * @return: Result
+  */
+ uint8_t NRF_Init_Result_Num(uint8_t NRF_NUM)
+ {
+	 uint8_t Result = 0;
+	 switch (NRF_NUM)
+	 {
+	 case 1:
+			nRF24L01_Init();
+			Result = nRF24L01_Check();
+		 break;
+
+	 case 2:
+			nRF24L01_2_Init();
+			Result = nRF24L01_2_Check();
+		 break;
+
+	 default:
+
+		 break;
+	 } 
+
+	 return Result;
+ }
  void main(void)
 {
         
-	memset(stbuff,0xff,16);
-	SystemInit(); 
-	radio_configure(); 
+	memset(stbuff,0xff,16); 
+	SystemInit();  
+	//spi引脚初始化
+	GPIO_Spi_init();
+	//初始化NRF24L01
+	NRF_Init_Result_Num(1);
+	NRF_Init_Result_Num(2); 
+	radio_configure();  
 	create_list_head(&RADIO_DATA_LIST_HEAD);
+
 	volatile  uint8_t *p_maddr = (volatile uint8_t *)0x17000;
 	m_DEVICE_ID = *p_maddr + (*(p_maddr+1) <<8);
+        
 	if(memcmp((uint8_t*)p_maddr,stbuff,8) == 0)
 	{
 		memcpy(Read_ID,(uint8_t*)"20010333",8);
@@ -102,12 +140,14 @@ bool Result ;
 
 	UART_Printf(" Writed ID : %s"  , Read_ID  );
 	
+	UART_Printf(" \r\n NRF24l01 Check : %d", nRF24L01_Check());
 	/*初始化应用软件*/
 	SoftWareInit();
 	reader_Radio_Rx_Rdy(); 
 	W5500_Diver_Test(id);
 	while(1)
-	{ 
+	{  
+		//UART_Printf("MQTT_Resv_Chanle ： %d" , MQTT_Resv_Channel);
 		/*事件在环执行*/
 		SoftWareEventInLoop();  
 		SoftWareTimeingEventInLoop(); 
@@ -132,7 +172,7 @@ bool Result ;
 ******************************************************************************/
 static void SystemInit(void)
 {
-	halInit();
+	halInit(); 
 } 
 
 /**

@@ -16,7 +16,7 @@
 //#include "net.h"
 #include "dhcp.h"         //包含需要的头文件
 #include "mqtt_interface.h"
-
+#include "nrf24l01+.h"
 #include "dns.h"
 #include "SPI1.h"	
 #include "Uart.h"
@@ -82,26 +82,30 @@ void GPIOTE_IRQHandler(void)
 	if ((NRF_GPIOTE->EVENTS_IN[0] == 1) && 
 		(NRF_GPIOTE->INTENSET & GPIOTE_INTENSET_IN0_Msk))
 	{
-		NRF_GPIOTE->EVENTS_IN[0] = 0;
+		NRF_GPIOTE->EVENTS_IN[0] = 0;			
+		if(IRQ0_READ() == 0)
+			{
+				IRQ_Flag0 = 1;
+				nRF24L01_IRQ();
+			}
+		if(IRQ1_READ() == 0)
+			{
+				IRQ_Flag1 = 1;
+				nRF24L01_2_IRQ();
+			}
+		if(IRQ2_READ()==1)
+			{
+				IRQ_Flag2 = 1;
+			}
 //		DemoApp_Pollhandler();
 	}
 	if (NRF_GPIOTE->EVENTS_PORT==1)
 	{
-		NRF_GPIOTE->EVENTS_PORT=0;
-////		if(IRQ0_READ()==1)
-////		{
-////			IRQ_Flag0 = 1;
-////		}
-////		if(IRQ1_READ()==1)
-////		{
-////			IRQ_Flag1 = 1;
-////		}
-////		if(IRQ2_READ()==1)
-////		{
-////			IRQ_Flag2 = 1;
-////		}
-//		rfIRQIntHandler();
-	}
+		NRF_GPIOTE->EVENTS_PORT=0; 
+	//rfIRQIntHandler();
+
+	} 
+	
 }
 
 

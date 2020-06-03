@@ -35,8 +35,7 @@ extern "C" {
 #include "nrf_drv_wdt.h"
 
 #include "nrf_delay.h"
-	
-	
+ 
 	
 /******************************************************************************/
 /***        Macro Definitions                                               ***/
