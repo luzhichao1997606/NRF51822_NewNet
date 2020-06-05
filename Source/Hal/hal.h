@@ -49,7 +49,7 @@ extern "C" {
 #define TX_LED              18
 	
 #define PWRKEY				2
-
+#define Relay_PIN           30
 //#define RF_SPI_SDN_PIN	   24
 //#define RF_SPI_IRQ_PIN	   25
 //#define RF_SPI_SEL_PIN 	   26

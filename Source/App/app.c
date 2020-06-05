@@ -58,6 +58,12 @@ static uint16  LoopTimeEventstmp=0x0000;
 
 //MQTT上报计时
 int MQTT_Count_SendTimes = 0;
+
+//继电器计时标志
+uint8_t MQTT_Relay_AlarmCount_flag = 0;
+
+//继电器计时
+uint32_t MQTT_Relay_AlarmCount = 0;
 /****************************************************************
 * Function Name: appInit
 * Decription   : app层初始化函数
@@ -488,7 +494,31 @@ void SoftWareTimeingEventInLoop(void)
         LoopTimeEventSetBit(APP_T_EVENT_SENDDATA);/*置位数据发送事件*/
         UART_Printf("\r\n Set Gateway send data timed events into SoftTimeingLoopEvent!\r\n"); 
         }
+
+		if(MQTT_Resv_Read_data)
+		{
+			MQTT_Resv_Read_data = 0;
+			//MQTT_SendData();
+
+			LoopEventSetBit(APP_EVENT_GATEWAY_TIMEING); /*置位软件在环网关定时事件*/
+    		UART_Printf("\r\n Set Gateway timed events into SoftWareEventInLoop!\r\n");
+    
+    		LoopTimeEventSetBit(APP_T_EVENT_SENDDATA);/*置位数据发送事件*/
+    		UART_Printf("\r\n Set Gateway send data timed events into SoftTimeingLoopEvent!\r\n");
+		}
+
+        if ( MQTT_Resv_Alarm )
+        { 
+           nrf_gpio_pin_set(Relay_PIN);
+           UART_Printf("\r\n RELAY ALARM !!!!!!!!!!!!!!!!!!\r\n"); 
+           MQTT_Resv_Alarm = 0 ;
+           MQTT_Relay_AlarmCount_flag = 1;
+           MQTT_Relay_AlarmCount = newTime;
+        }
+        
+        
     }
+
     LoopTimeEvents|=LoopTimeEventstmp;
     LoopTimeEventstmp^=LoopTimeEventstmp;
 }

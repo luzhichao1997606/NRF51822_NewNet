@@ -7,9 +7,11 @@
  */
 #include "NetHandler.h"
 #include "hal.h"    //包含需要的头文件
+#include "app.h"
 #include "mystring.h"
 #include <string.h>
 #include "cJSON.h"
+#include "nrf24l01+.h"
 
 #include "socket.h"//Just include one header for WIZCHIP
 #include "dhcp.h"
@@ -20,8 +22,8 @@
 
 #include "UserInformation.pb-c.h"
 
-#define CardNum		10
-
+#define CardNum			10
+#define PacksSensorNum	40
 //typedef union node_package
 //{
 //    struct {
@@ -32,9 +34,9 @@
 //}node_pkg_t;
 
 extern uint8_t		Read_ID[16] ;
+extern uint8_t 		DataToSendBuffer[2400] ;
 uint8 SensorNum		= 120;
-uint8 SensorStart	= 1;
-//uint8_t message_pack_buffer[1024];
+uint8 SensorStart	= 1; 
 UserInformation userInfo = USER_INFORMATION__INIT;
 Heartbeat heartbeat = HEARTBEAT__INIT;
 
@@ -52,12 +54,13 @@ uint8_t memsize[2][8] = {{2,2,2,2,2,2,2,2},{2,2,2,2,2,2,2,2}}; /* WIZCHIP SOCKET
 uint8_t domain_ip[4]={0};/*域名IP*/
 uint8_t domain_name[]="emqx.iricbing.cn";//"mqtt.yun-ran.com";//"yeelink.net";/*域名*/
 
-unsigned char tempBuffer[2048];
+unsigned char tempBuffer[10];
 //MQTT 发送数据
-unsigned char SendBuffer[3072]= {"3132213B2470E251012401020304"};
+unsigned char SendBuffer[1200];
 
 unsigned char Buffer[2]= {0x29,0x55};
-
+NRF24L01_Data_Set NRF_Data_Poll_1; 
+ 
 //unsigned char ReciveBuffer[500];
 typedef union Recive_package
 {
@@ -441,7 +444,7 @@ uint8_t MQTT_Resv_Read_data = 	0;
 uint8_t MQTT_Resv_Cycle 	= 	1; // 上报周期，单位分钟，1~255
 uint8_t MQTT_Resv_AlarmTime =	10;// 报警持续时间，单位分钟，0~255，0不报警，255持续报警 
 uint8_t MQTT_Resv_Channel   =	1;// 工作信道（传参到NRF24L01）
-uint8_t MQTT_Resv_SensorNum =	40;// 1-240 该数传设备下面的采集模块数量(配置数组)
+uint8_t MQTT_Resv_SensorNum =	120;// 1-240 该数传设备下面的采集模块数量(配置数组)
 uint8_t MQTT_Resv_SensorCycle =	35;// 传感器上报周期，单位分钟，10~255，最低10分钟(清除数组数据) 
 int Unpack_json_MQTT_ResvData(uint8 * ResvData)
 {
@@ -493,12 +496,7 @@ int Unpack_json_MQTT_ResvData(uint8 * ResvData)
 		if(json_value->type == cJSON_Number)
 		{
 			MQTT_Resv_Read_data = json_value->valueint;
-			UART_Printf("Read_data: %d\n", MQTT_Resv_Read_data);
-			if(MQTT_Resv_Read_data)
-			{
-				MQTT_Resv_Read_data = 0;
-				MQTT_SendData();
-			}
+			UART_Printf("Read_data: %d\n", MQTT_Resv_Read_data); 
 		}  
 		 
 	}	
@@ -612,7 +610,7 @@ int MQTT_Init(void)
 
 	ConnectNetwork(&network, domain_ip, 1883);
 	UART_Printf("IP地址: %d.%d.%d.%d,%d\r\n", domain_ip[0],domain_ip[1],domain_ip[2],domain_ip[3],1883);
-	MQTTClientInit(&mqttclient,&network,1000,SendBuffer,3072,tempBuffer,2048);
+	MQTTClientInit(&mqttclient,&network,1000,SendBuffer,1200,tempBuffer,10);
 	
 	delay_ms(500);
 	
@@ -659,10 +657,12 @@ int MQTT_Init(void)
  */
 size_t HeartBeat_lenght = 0;
 size_t SendData_lenght = 0; 
-char * Creat_json_MQTT_SendData(uint8 Pub_State)
+
+uint8_t DataRiver[(PacksSensorNum * 10 )+ 1]  ; 
+char * Creat_json_MQTT_SendData(uint8 Pub_State,uint8 Pack_NUM)
 {
 	cJSON * usr; 
-	uint8 *out; 
+	uint8 * out ;
 	usr = cJSON_CreateObject(); //创建根数据对象
 
 	switch (Pub_State)
@@ -670,19 +670,24 @@ char * Creat_json_MQTT_SendData(uint8 Pub_State)
 	case MQTT_Publish_Type_SendData:
 		/* code */
 		//若传感器数量错误，给一个默认值
-		if(MQTT_Resv_SensorNum == 0){MQTT_Resv_SensorNum = SensorNum;}
+		if(MQTT_Resv_SensorNum == 0){MQTT_Resv_SensorNum = SensorNum;} 
+		memcpy(DataRiver,DataToSendBuffer + ((PacksSensorNum * 10) * (Pack_NUM-1)) ,(PacksSensorNum * 10)); 
+		//字符串休止'/0'
+		DataRiver[(PacksSensorNum * 10 )] = 0x00 ;
 
-    	cJSON_AddItemToObject(usr, "SensorNum", cJSON_CreateNumber(MQTT_Resv_SensorNum));
-		cJSON_AddItemToObject(usr, "SensorStart", cJSON_CreateNumber(SensorStart));
-		cJSON_AddItemToObject(usr, "SensorData", cJSON_CreateString(SendBuffer));
- 
+    	cJSON_AddItemToObject(usr, "SensorNum", cJSON_CreateNumber(PacksSensorNum));
+		cJSON_AddItemToObject(usr, "SensorStart", cJSON_CreateNumber(((Pack_NUM -1)*PacksSensorNum )+ 1));
+		cJSON_AddItemToObject(usr, "SensorData", cJSON_CreateString(DataRiver)); 
+
 		out = cJSON_Print(usr); //将json形式打印成正常字符串形式
 		
-		UART_Printf("json Data : %s\n",out);
+		UART_Printf("json Data : %s\r\n",out);
 		
-		SendData_lenght = strlen(out); 
-
-		UART_Printf("SendData_lenght : %d \r\n" , SendData_lenght);
+		UART_Printf("\r\nDataToSendBuffer : %s \r\n",DataRiver)  ;
+		
+		SendData_lenght = strlen(out) +1; 
+		 
+		UART_Printf("\r\nSendData_lenght : %d \r\n" , SendData_lenght);
 
 		// 释放内存 
 		cJSON_Delete(usr); 
@@ -728,13 +733,12 @@ int MQTT_HeartBeat(void)
 	heartbeat.producttype = "WSN-LW";
 	heartbeat.softversion = "1.0.1";
 	heartbeat.configtag = 1;
-	 
-//	unpack_heartbeat_data(tempBuffer, lenght);
+	  
 	mqtt_msg.qos = QOS0;
 	mqtt_msg.retained = 0;
     mqtt_msg.id = mes_id++;
     mqtt_msg.dup = 0;
-	mqtt_msg.payload = Creat_json_MQTT_SendData(MQTT_Publish_Type_HeartBeat);
+	mqtt_msg.payload = Creat_json_MQTT_SendData(MQTT_Publish_Type_HeartBeat,0);
 	mqtt_msg.payloadlen = HeartBeat_lenght;
 	
 	rc = MQTTPublish(&mqttclient, Topic, &mqtt_msg);
@@ -755,43 +759,52 @@ int MQTT_SendData(void)
 	int rc = 0; 
 	static uint16_t mes_id = 0; 
 	DOUBLE_LINK_NODE *pNode;
-	uint8_t tag_cnt    = 0;
+	uint8_t tag_cnt	 = 0;
+	uint8_t Pack_Num = 0; 
+	//默认120个从机
+	if(MQTT_Resv_SensorNum == 0){MQTT_Resv_SensorNum = SensorNum;}
+	//计算包数
+	Pack_Num = MQTT_Resv_SensorNum / PacksSensorNum;
+	if (MQTT_Resv_SensorNum % PacksSensorNum )
+	{
+		Pack_Num ++;
+	}
+	UART_Printf("Pack_Num is ---------------: %d\r\n" ,Pack_Num);
+	//分包发送
+	for (uint8_t i = 1; i <= Pack_Num; i++)
+	{	
+		sprintf(Topic,"/WSN_LW/");
+		strcat(Topic, Read_ID);
+		strcat(Topic, "/event/Data");
+		
+		// init_user(&userInfo);
+		userInfo.protocoltype = "w5500";
+		userInfo.n_cardlist = tag_cnt;
+		userInfo.cardlist = cardInfo_p;
+		DISABLE_GLOBAL_INTERRUPT();
+		pNode = (&RADIO_DATA_LIST_HEAD)->next;  
+		mqtt_msg.qos = QOS0;
+		mqtt_msg.retained = 0;
+		mqtt_msg.id = mes_id++;
+		mqtt_msg.dup = 0;	
+		
+		mqtt_msg.payloadlen = SendData_lenght ;//lenght;
 
-	tag_cnt = count_number_in_double_link(&RADIO_DATA_LIST_HEAD);
-//	if(tag_cnt == 0)
-//		return 0;
+		mqtt_msg.payload = Creat_json_MQTT_SendData(MQTT_Publish_Type_SendData,i) ;  
 
-	sprintf(Topic,"/WSN_LW/");
-	strcat(Topic, Read_ID);
-	strcat(Topic, "/event/Data");
-	
-	if(tag_cnt >= 10) 
-        tag_cnt = 10;  
-	// init_user(&userInfo);
-	userInfo.protocoltype = "w5500";
-	userInfo.n_cardlist = tag_cnt;
-	userInfo.cardlist = cardInfo_p;
-	DISABLE_GLOBAL_INTERRUPT();
-	pNode = (&RADIO_DATA_LIST_HEAD)->next; 
+		rc = MQTTPublish(&mqttclient, Topic, &mqtt_msg);
+
+		UART_Printf("Publish %s\r\n", Topic);
+		//IR_SendData(Buffer,SendData_lenght);
+
+		UART_Printf("\r\nPublish %d\r\n", rc);
+
+		UART_Printf("Sending.........");  
+
+		nrf_delay_ms(1500);
+	} 
 
 	ENABLE_GLOBAL_INTERRUPT();
-	//lenght = user_information__pack(&userInfo, SendBuffer);//user_information__get_packed_size(&userInfo);
-
-	mqtt_msg.qos = QOS0;
-	mqtt_msg.retained = 0;
-	mqtt_msg.id = mes_id++;
-	mqtt_msg.dup = 0;
-	mqtt_msg.payload = Creat_json_MQTT_SendData(MQTT_Publish_Type_SendData) ; //SendBuffer;
-	mqtt_msg.payloadlen = SendData_lenght ;//lenght;
-	
-	rc = MQTTPublish(&mqttclient, Topic, &mqtt_msg);
-	UART_Printf("Publish %s\r\n", Topic);
-	//IR_SendData(Buffer,SendData_lenght);
-
-	UART_Printf("\r\nPublish %d\r\n", rc);
-
-	UART_Printf("Sending.........");  
-	 
 	return rc;
 }
 

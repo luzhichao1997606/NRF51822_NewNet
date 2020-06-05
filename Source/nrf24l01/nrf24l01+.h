@@ -112,6 +112,18 @@ extern uint8_t MQTT_Resv_Channel ;
 /******************************************************************************/
 /***        Local Variables                                                 ***/
 /******************************************************************************/
+ 
+ 
+typedef struct NRF24L01_DATA
+{ 
+    uint8_t NRF24L01_Buf[1200];  
+    uint32_t NRF24L01_Time_Count[240];
+
+    uint16_t NRF24L01_Data_Lens ;
+
+}NRF24L01_Data_Set;
+
+extern NRF24L01_Data_Set NRF_Data_Poll_1; 
 
 /******************************************************************************/
 /***        Exported Functions                                              ***/
@@ -128,6 +140,8 @@ void nRF24L01_2_EnterRxMode(void);
 void nRF24L01_2_Tx(const uint8_t *dstAddr, const uint8_t *pbuf, uint8_t u8Len);
 void nRF24L01_2_IRQ(void);
 
+
+void Clear_Buffer_TimeOutTask(void);
 /******************************************************************************/
 /***        Local Functions                                                 ***/
 /******************************************************************************/

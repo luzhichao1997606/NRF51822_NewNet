@@ -105,6 +105,9 @@ extern void SoftWareTimeingEventInLoop(void);
 /*定时循环事件执行函数*/
 extern uint8 SoftTimeingLoopEvent(void);
 
+extern uint8_t MQTT_Relay_AlarmCount_flag ;
+
+extern uint32_t MQTT_Relay_AlarmCount ;
 
 #if defined __cplusplus
 }

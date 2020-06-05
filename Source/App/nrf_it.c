@@ -82,7 +82,8 @@ void GPIOTE_IRQHandler(void)
 	if ((NRF_GPIOTE->EVENTS_IN[0] == 1) && 
 		(NRF_GPIOTE->INTENSET & GPIOTE_INTENSET_IN0_Msk))
 	{
-		NRF_GPIOTE->EVENTS_IN[0] = 0;			
+		NRF_GPIOTE->EVENTS_IN[0] = 0;	
+
 		if(IRQ0_READ() == 0)
 			{
 				IRQ_Flag0 = 1;
@@ -96,8 +97,7 @@ void GPIOTE_IRQHandler(void)
 		if(IRQ2_READ()==1)
 			{
 				IRQ_Flag2 = 1;
-			}
-//		DemoApp_Pollhandler();
+			} 
 	}
 	if (NRF_GPIOTE->EVENTS_PORT==1)
 	{

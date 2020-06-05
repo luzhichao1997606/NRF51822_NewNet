@@ -81,7 +81,26 @@ uint8_t		Read_ID[16] ;
 bool Flag = false;
 char id[6];
 bool Result ;
-
+  
+ /**
+  * @name: Realy_TimeOutTask
+  * @test:  
+  * @msg: 	 
+  * @param  {NRF_NUM}  : 选择具体的初始化的编号
+  * @return: Result
+  */
+uint32_t NewTime = 0;
+ void Realy_TimeOutTask(void)
+ {
+	 NewTime = GetSystemNowtime();
+	 if (MQTT_Relay_AlarmCount_flag && ((NewTime - MQTT_Relay_AlarmCount) >= (MQTT_Resv_AlarmTime * 6000)))
+	 {
+		 MQTT_Relay_AlarmCount_flag = 0;
+		nrf_gpio_pin_clear(Relay_PIN);
+		UART_Printf("\r\n Clear RELAY ALARM !!!!!!!!!!!!!!!!!!\r\n"); 
+	 }
+	 
+ }
  /**
   * @name: NRF_Init_Result_Num
   * @test:  
@@ -111,13 +130,15 @@ bool Result ;
 
 	 return Result;
  }
- void main(void)
+
+  
+  void main(void)
 {
         
 	memset(stbuff,0xff,16); 
 	SystemInit();  
 	//spi引脚初始化
-	GPIO_Spi_init();
+	GPIO_Spi_init(); 
 	//初始化NRF24L01
 	NRF_Init_Result_Num(1);
 	NRF_Init_Result_Num(2); 
@@ -151,6 +172,8 @@ bool Result ;
 		/*事件在环执行*/
 		SoftWareEventInLoop();  
 		SoftWareTimeingEventInLoop(); 
+		Clear_Buffer_TimeOutTask(); 
+		Realy_TimeOutTask();
 	}
     
 } 

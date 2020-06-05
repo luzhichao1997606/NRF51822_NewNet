@@ -29,7 +29,7 @@
 /******************************************************************************/
 /***        Local Function Prototypes                                       ***/
 /******************************************************************************/
-
+#define DEVICE_COUNT 240
 /******************************************************************************/
 /***        Exported Variables                                              ***/
 /******************************************************************************/
@@ -43,6 +43,7 @@ pun_ModuleParam  punModuleParam = (un_ModuleParam *)ADDR_PARAM_START;
 
 st_Rf stRf;
 uint8_t ADDR_Save_Data = 1 ;
+uint8_t DataToSendBuffer[2400] ;
 /******************************************************************************/
 /***        Exported Functions                                              ***/
 /******************************************************************************/
@@ -114,7 +115,7 @@ void nRF24L01_2_Init(void)
     halSpiWriteByte_2(SETUP_AW, RF_LEN_ADDR);     // 设置发送/接收地址长度
     halSpiWriteByte_2(RX_PW_P0, RF_LEN_PAYLOAD);  // 设置通道0数据包长度    
   	halSpiWriteByte_2(EN_RXADDR, 0x01);           // 接收通道0使能
-	halSpiWriteByte_2(EN_AA, 0x00);   	//关闭接收自动应答            // 使能通道0接收自动应答
+	halSpiWriteByte_2(EN_AA, 0x00);   				//关闭接收自动应答            // 使能通道0接收自动应答
 	halSpiWriteByte_2(FEATURE, 0x01);             // 使能W_TX_PAYLOAD_NOACK命令
 	halSpiWriteByte_2(RF_CH, u8channel);           // 选择射频工作频道0(0-127)  
     halSpiWriteByte_2(RF_SETUP, 0x27);            // 0db, 250Kbps
@@ -166,7 +167,7 @@ void nRF24L01_EnterRxMode(void)
 	uint8_t u8channel;
 
 	UART_Printf("\r\nNRF24L01 ONE --- ADDR_Save_Data IS : %d\r\n",ADDR_Save_Data);
-	
+
 	u8channel =  (((ADDR_Save_Data-1)%2==0)?
 				(2*(ADDR_Save_Data-1)):(2*(ADDR_Save_Data-1)-1));
 	nRF24L01_CE_LOW();
@@ -248,6 +249,110 @@ void NRF_LowPower_Mode(void)
 	u8temp = halSpiReadByte(CONFIG);
 	nRF24L01_CE_LOW();         
 }
+ 
+// C prototype : void HexToStr(BYTE *pbDest, BYTE *pbSrc, int nLen)
+// parameter(s): [OUT] pbDest - 存放目标字符串
+// [IN] pbSrc - 输入16进制数的起始地址
+// [IN] nLen - 16进制数的字节数
+// return value:
+// remarks : 将16进制数转化为字符串
+ 
+void HexToStr(uint8_t *pbDest, uint8_t *pbSrc, int nLen)
+{
+	char ddl,ddh;
+	int i; 
+	for (i=0; i<nLen; i++)
+	{
+		ddh = 48 + pbSrc[i] / 16;
+		ddl = 48 + pbSrc[i] % 16;
+		if (ddh > 57) ddh = ddh + 7;
+		if (ddl > 57) ddl = ddl + 7;
+		pbDest[i*2] = ddh;
+		pbDest[i*2+1] = ddl;
+	}
+
+	pbDest[nLen*2] = '\0';
+}
+
+ /**
+  * @name: Clear_Buffer_TimeOutTask
+  * @test:  
+  * @msg: 	清除Buffer
+  * @param  {NRF_NUM}  : 
+  * @return: Result
+  */
+ void Clear_Buffer_TimeOutTask(void)
+ {
+	uint32_t NewTime = 0;
+	uint8_t Clear_Flag = 0;
+
+	NewTime = GetSystemNowtime(); 
+	for (int i = 0; i < DEVICE_COUNT; i++)
+	{
+		//如果超时 MQTT_Resv_SensorCycle（分钟值）
+		if (NRF_Data_Poll_1.NRF24L01_Time_Count[i] != 0 
+				&& (NewTime - NRF_Data_Poll_1.NRF24L01_Time_Count[i] >= (MQTT_Resv_SensorCycle * 6000) ))
+		{
+			//清除每个数组的时钟计时
+			NRF_Data_Poll_1.NRF24L01_Time_Count[i] = 0 ;
+			//将原始数据清除
+			for (int j = 0; j < 5; j++)
+			{ 
+				NRF_Data_Poll_1.NRF24L01_Buf[((i)* 5 + j)] = 0x00 ;  
+			} 
+			//将发送数据也清除
+			for (uint16_t k = 0; k < 10; k++)
+			{
+				DataToSendBuffer[((i)* 10 + k)] = 0x30 ; 
+			}
+			
+			//清除标志位置位
+			Clear_Flag = 1; 
+		} 
+	} 
+	if (Clear_Flag)
+	{
+		Clear_Flag = 0;
+		UART_Printf("超时%d分钟清除数据 \r\n",MQTT_Resv_SensorCycle); 
+
+	}
+ }
+
+/**
+ * @name: 
+ * @test: test font
+ * @msg: 
+ * @param {type} 
+ * @return: 
+ */
+
+uint8_t Temp_Data[8] ;
+
+void NRF_Data_Poll(uint8_t * Data_Buf)
+{
+	uint8_t Product_Num = 0;
+	
+	if (Data_Buf[1] >= 0x01)
+	{ 
+		Product_Num = Data_Buf[1]; 
+		memcpy(Temp_Data,Data_Buf,8);
+
+		for (uint8_t i = 0; i < 5; i++)
+		{
+			//把数据赋值给结构体的缓存
+			NRF_Data_Poll_1.NRF24L01_Buf[((Product_Num - 1)* 5 + i) ]= Temp_Data[i+2]; 
+			//把时间数据赋值给这个计数缓存
+			NRF_Data_Poll_1.NRF24L01_Time_Count[(Product_Num - 1)] = GetSystemNowtime();   
+			//NRF_Data_Poll_1.NRF24L01_Data_Lens ++;				
+		} 
+		UART_Printf("接收到数据已经存储至 NRF_Data_Poll_1.NRF24L01_Buf\r\n"); 
+		//
+		HexToStr(DataToSendBuffer,NRF_Data_Poll_1.NRF24L01_Buf,1200);
+		
+	}  
+	 
+}
+
 //发完数据之后，执行NRF_LowPower_Mode，在下次发送之前，重新配置为发送模式
 	
 uint16 u16Temp_old1,u16Temp_new1,u16Temp_old2,u16Temp_new2;	// 存储位置可用标志
@@ -257,7 +362,8 @@ void nRF24L01_IRQ(void)
 	uint8_t u8State;
 //	uint8_t TempReg;
 	ADDR_Save_Data = MQTT_Resv_Channel ;
-	
+
+	//设置关闭中断
 	u8State = halSpiReadByte(STATUS);	
 	UART_Printf("NRF24L01 ONE Resv Running ADDR_Save_Data IS : %d\r\n",ADDR_Save_Data);
 
@@ -290,7 +396,9 @@ void nRF24L01_IRQ(void)
 	{
 		UART_Printf("NRF24L01 ONE ResvData is -- stRf.Buf[%d] : %d \r\n" , i , stRf.Buf[i] ); 
 	}  
- 
+	//NRF数据处理
+	NRF_Data_Poll(stRf.Buf);
+	//开启中断
     nRF24L01_EnterRxMode(); 				 // 进入接收模式
 }
 

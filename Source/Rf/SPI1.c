@@ -56,11 +56,10 @@ void GPIO_Spi_init(void)
 										| (GPIO_PIN_CNF_DRIVE_S0S1<<GPIO_PIN_CNF_DRIVE_Pos) 
 										| (GPIO_PIN_CNF_SENSE_High<<GPIO_PIN_CNF_SENSE_Pos);
  
-	//NRF_GPIOTE->INTENSET  = GPIOTE_INTENSET_PORT_Set << GPIOTE_INTENSET_PORT_Pos;
+	NRF_GPIOTE->INTENSET  = GPIOTE_INTENSET_PORT_Set << GPIOTE_INTENSET_PORT_Pos;
 	
     //NVIC_SetPriority(GPIOTE_IRQn, 1); 
     
-    NVIC_EnableIRQ(GPIOTE_IRQn);
 
 	NRF_GPIOTE->CONFIG[0] =	(GPIOTE_CONFIG_POLARITY_HiToLo << GPIOTE_CONFIG_POLARITY_Pos)
                            	|	(RF_SPI_IRQ0_PIN << GPIOTE_CONFIG_PSEL_Pos)  
@@ -71,8 +70,10 @@ void GPIO_Spi_init(void)
                            	|	(GPIOTE_CONFIG_MODE_Event << GPIOTE_CONFIG_MODE_Pos);//中断配置
 
 	NRF_GPIOTE->INTENSET  = GPIOTE_INTENSET_IN0_Set << GPIOTE_INTENSET_IN0_Pos;//使能中断类型
-	
-	        
+	 
+    NVIC_EnableIRQ(GPIOTE_IRQn);   
+
+	NVIC_SetPriority(GPIOTE_IRQn, 4);      
  }
 
 uint8_t halSpiReadWriteByte( uint8_t TxByte )

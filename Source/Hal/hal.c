@@ -307,6 +307,9 @@ static void halGpioInit(void)
 	
 	nrf_gpio_cfg_output(PWRKEY);
 	nrf_gpio_pin_set(PWRKEY);
+	 	 
+    nrf_gpio_cfg_output(Relay_PIN);  
+	nrf_gpio_pin_clear(Relay_PIN);
 	
 	nrf_gpio_cfg_output(W5500_SPI_CS_PIN);
 	nrf_gpio_pin_clear(W5500_SPI_CS_PIN);
@@ -502,7 +505,7 @@ static void halTimInit(void)
 
 void nrf_timer_delay_ms(uint_fast16_t volatile number_of_ms)
 {
-
+	uint16_t Count_Over = 0;
     NRF_TIMER0->MODE           = TIMER_MODE_MODE_Timer;        // 设置为定时器模式
     NRF_TIMER0->PRESCALER      = 3;                            // Prescaler 9 produces 31250 Hz timer frequency => 1 tick = 32 us.
     NRF_TIMER0->BITMODE        = TIMER_BITMODE_BITMODE_16Bit;  // 16 bit 模式.
@@ -515,7 +518,14 @@ void nrf_timer_delay_ms(uint_fast16_t volatile number_of_ms)
 
     while (NRF_TIMER0->EVENTS_COMPARE[0] == 0)
     {
-        // Do nothing.
+        //防止死机
+		Count_Over ++;
+		if (Count_Over >= 65000)
+		{
+			Count_Over = 0;
+			break;
+		}
+		
     }
 
     NRF_TIMER0->EVENTS_COMPARE[0]  = 0;
