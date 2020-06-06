@@ -4,7 +4,7 @@
  * @Author: lzc
  * @Date: 2020-05-29 15:25:53
  * @LastEditors: lzc
- * @LastEditTime: 2020-06-01 17:54:06
+ * @LastEditTime: 2020-06-06 12:17:37
  */ 
 /**
  * NetHander.h 网络初始化函数
@@ -24,9 +24,9 @@
 #define SOCK_DNS	        1
 #define MY_MAX_DHCP_RETRY	10   /*DHCP重连最大次数*/
 #define DATA_BUF_SIZE           2048 /*获取数据的最大字节数*/
-#define MQTT_Publish_Type_SendData	0
-#define MQTT_Publish_Type_HeartBeat 1
-
+#define MQTT_Publish_Type_SendData	  0
+#define MQTT_Publish_Type_HeartBeat   1
+#define MQTT_Publish_Type_CountLess40 2
 //Alarm 订阅解析
 extern uint8_t MQTT_Resv_Alarm ;
 extern uint8_t *MQTT_Resv_AlarmData ;

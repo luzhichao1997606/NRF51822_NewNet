@@ -76,9 +76,7 @@ uint8 stbuff[16] = {0xff};
 uint8 PHY_Status[6] = {0x57,0x35,0x35,0x30,0x30,0x00};
 uint8 stbuff11[16] = {0x55,0xaa,0x34,0x48,0x15,0x64,0x67,0x34,0x48,0x15};
 uint16_t	m_DEVICE_ID = 0x0315;
-uint8_t		Read_ID[16] ;
-
-bool Flag = false;
+uint8_t		Read_ID[16] ; 
 char id[6];
 bool Result ;
   
@@ -86,7 +84,7 @@ bool Result ;
   * @name: Realy_TimeOutTask
   * @test:  
   * @msg: 	 
-  * @param  {NRF_NUM}  : 选择具体的初始化的编号
+  * @param  {NRF_NUM}  : 继电器清除
   * @return: Result
   */
 uint32_t NewTime = 0;
@@ -95,9 +93,16 @@ uint32_t NewTime = 0;
 	 NewTime = GetSystemNowtime();
 	 if (MQTT_Relay_AlarmCount_flag && ((NewTime - MQTT_Relay_AlarmCount) >= (MQTT_Resv_AlarmTime * 6000)))
 	 {
+		 MQTT_Resv_Alarm = 0 ;
 		 MQTT_Relay_AlarmCount_flag = 0;
 		nrf_gpio_pin_clear(Relay_PIN);
 		UART_Printf("\r\n Clear RELAY ALARM !!!!!!!!!!!!!!!!!!\r\n"); 
+	 }
+	 if (MQTT_Resv_Alarm == 0 )
+	 {
+		 nrf_gpio_pin_clear(Relay_PIN);
+		 MQTT_Relay_AlarmCount_flag = 0;
+		 //UART_Printf("\r\n Clear RELAY ALARM !!!!!!!!!!!!!!!!!!\r\n"); 
 	 }
 	 
  }
@@ -166,6 +171,8 @@ uint32_t NewTime = 0;
 	SoftWareInit();
 	reader_Radio_Rx_Rdy(); 
 	W5500_Diver_Test(id);
+	//初次上电标志位置位
+	First_Power_ON_Flag = true;
 	while(1)
 	{  
 		//UART_Printf("MQTT_Resv_Chanle ： %d" , MQTT_Resv_Channel);
@@ -174,6 +181,7 @@ uint32_t NewTime = 0;
 		SoftWareTimeingEventInLoop(); 
 		Clear_Buffer_TimeOutTask(); 
 		Realy_TimeOutTask();
+		//NRF_ALLReflash_Channel();
 	}
     
 } 

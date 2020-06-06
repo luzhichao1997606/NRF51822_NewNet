@@ -281,10 +281,11 @@ void HexToStr(uint8_t *pbDest, uint8_t *pbSrc, int nLen)
   * @param  {NRF_NUM}  : 
   * @return: Result
   */
+//清除标志位数据
+uint8_t Clear_Flag = 0;
  void Clear_Buffer_TimeOutTask(void)
  {
 	uint32_t NewTime = 0;
-	uint8_t Clear_Flag = 0;
 
 	NewTime = GetSystemNowtime(); 
 	for (int i = 0; i < DEVICE_COUNT; i++)
@@ -312,9 +313,10 @@ void HexToStr(uint8_t *pbDest, uint8_t *pbSrc, int nLen)
 	} 
 	if (Clear_Flag)
 	{
-		Clear_Flag = 0;
-		UART_Printf("超时%d分钟清除数据 \r\n",MQTT_Resv_SensorCycle); 
-
+		//Clear_Flag = 0;
+		UART_Printf("\r\n 超时%d分钟清除数据 ,进入上报处理 \r\n",MQTT_Resv_SensorCycle); 
+		//此处需要加上上报处理
+		
 	}
  }
 
@@ -346,7 +348,7 @@ void NRF_Data_Poll(uint8_t * Data_Buf)
 			//NRF_Data_Poll_1.NRF24L01_Data_Lens ++;				
 		} 
 		UART_Printf("接收到数据已经存储至 NRF_Data_Poll_1.NRF24L01_Buf\r\n"); 
-		//
+		
 		HexToStr(DataToSendBuffer,NRF_Data_Poll_1.NRF24L01_Buf,1200);
 		
 	}  
@@ -398,6 +400,7 @@ void nRF24L01_IRQ(void)
 	}  
 	//NRF数据处理
 	NRF_Data_Poll(stRf.Buf);
+	UART_Printf("\r\n nrf24l01 ONE DataPoll \r\n");
 	//开启中断
     nRF24L01_EnterRxMode(); 				 // 进入接收模式
 }
@@ -445,10 +448,25 @@ void nRF24L01_2_IRQ(void)
 	{
 		UART_Printf("NRF24L01 TWO ResvData is -- stRf.Buf[%d] : %d \r\n" , i , stRf.Buf[i] ); 
 	}   
-
+	//NRF数据处理
+	NRF_Data_Poll(stRf.Buf+10);
+	UART_Printf("\r\n nrf24l01 TWO DataPoll \r\n");
     nRF24L01_2_EnterRxMode(); // 进入接收模式
 }
 
+//没有进行测试
+uint8_t Saved_Channel = 0;
+void NRF_ALLReflash_Channel(void)
+{
+	if (Saved_Channel != MQTT_Resv_Channel)
+	{
+		/* code */	
+		ADDR_Save_Data = MQTT_Resv_Channel ;
+		nRF24L01_EnterRxMode(); 				 // 进入接收模式
+		nRF24L01_2_EnterRxMode();				 // 进入接收模式
+	} 
+		Saved_Channel = ADDR_Save_Data ; 
+}
 
 /******************************************************************************/
 /***        Local Functions                                                 ***/

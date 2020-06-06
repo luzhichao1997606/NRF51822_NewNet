@@ -17,7 +17,8 @@
 #include "app.h"
 #include "mystring.h"
 #include "NetHandler.h"
-#include "AT_Proc.h"
+#include "AT_Proc.h" 
+#include "nrf24l01+.h"
 /******************************************************************************/
 /***        Macro Definitions                                               ***/
 /******************************************************************************/
@@ -64,6 +65,14 @@ uint8_t MQTT_Relay_AlarmCount_flag = 0;
 
 //继电器计时
 uint32_t MQTT_Relay_AlarmCount = 0;
+
+//初次上电15分钟上报一次
+
+//初次上电标志位
+bool First_Power_ON_Flag  ;
+
+//初次上电15分钟上报一次
+#define First_Power_ON_TimeCount 15
 /****************************************************************
 * Function Name: appInit
 * Decription   : app层初始化函数
@@ -453,8 +462,19 @@ void SoftWareTimeingEventInLoop(void)
     }
 	
 	//********网关数据包事件***************************************************
-    if(TimeDifference(newTime,SendDataLt)>=(SEND_DATA_TIME)){
-    
+    //2s进入一次
+    if(TimeDifference(newTime,SendDataLt)>=(SEND_DATA_TIME))
+    {
+        if ( First_Power_ON_Flag )
+        {
+            //大于15分钟
+            if (newTime >= (First_Power_ON_TimeCount * 60  ))
+            {
+                First_Power_ON_Flag = false;
+            } 
+        }
+        if ( !First_Power_ON_Flag)
+        { 
         MQTT_Count_SendTimes ++;
         tag_cnt = 16;    
         UART_Printf(" MQTT_Count_SendTimes N ：%d ", MQTT_Count_SendTimes)  ;
@@ -494,12 +514,14 @@ void SoftWareTimeingEventInLoop(void)
         LoopTimeEventSetBit(APP_T_EVENT_SENDDATA);/*置位数据发送事件*/
         UART_Printf("\r\n Set Gateway send data timed events into SoftTimeingLoopEvent!\r\n"); 
         }
+    }
 
-		if(MQTT_Resv_Read_data)
+		if(MQTT_Resv_Read_data || Clear_Flag)
 		{
 			MQTT_Resv_Read_data = 0;
 			//MQTT_SendData();
-
+            Clear_Flag = 0 ;
+            UART_Printf("\r\n ReadData事件或者有传感器离线事件发生 ， 进入上报状态 !\r\n");
 			LoopEventSetBit(APP_EVENT_GATEWAY_TIMEING); /*置位软件在环网关定时事件*/
     		UART_Printf("\r\n Set Gateway timed events into SoftWareEventInLoop!\r\n");
     
@@ -507,16 +529,13 @@ void SoftWareTimeingEventInLoop(void)
     		UART_Printf("\r\n Set Gateway send data timed events into SoftTimeingLoopEvent!\r\n");
 		}
 
-        if ( MQTT_Resv_Alarm )
+        if ( MQTT_Resv_Alarm && !MQTT_Relay_AlarmCount_flag )
         { 
            nrf_gpio_pin_set(Relay_PIN);
-           UART_Printf("\r\n RELAY ALARM !!!!!!!!!!!!!!!!!!\r\n"); 
-           MQTT_Resv_Alarm = 0 ;
+           UART_Printf("\r\n RELAY ALARM !!!!!!!!!!!!!!!!!!\r\n");  
            MQTT_Relay_AlarmCount_flag = 1;
            MQTT_Relay_AlarmCount = newTime;
-        }
-        
-        
+        } 
     }
 
     LoopTimeEvents|=LoopTimeEventstmp;

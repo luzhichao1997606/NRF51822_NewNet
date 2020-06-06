@@ -75,8 +75,8 @@ typedef union Recive_package
 
 Recive_pkg_t RecivePkg;
 
-char Topic[50] = "/WSN_LW/";
-char SubTopic[50] = "/WSN_LW/";
+char Topic[50] = "/WSN-LW/";
+char SubTopic[50] = "/WSN-LW/";
 
 MQTTClient mqttclient;
 MQTTMessage mqtt_msg;
@@ -443,7 +443,7 @@ uint8_t MQTT_Resv_Read_data = 	0;
 //Updata 订阅解析
 uint8_t MQTT_Resv_Cycle 	= 	1; // 上报周期，单位分钟，1~255
 uint8_t MQTT_Resv_AlarmTime =	10;// 报警持续时间，单位分钟，0~255，0不报警，255持续报警 
-uint8_t MQTT_Resv_Channel   =	1;// 工作信道（传参到NRF24L01）
+uint8_t MQTT_Resv_Channel   =	30;// 工作信道（传参到NRF24L01）
 uint8_t MQTT_Resv_SensorNum =	120;// 1-240 该数传设备下面的采集模块数量(配置数组)
 uint8_t MQTT_Resv_SensorCycle =	35;// 传感器上报周期，单位分钟，10~255，最低10分钟(清除数组数据) 
 int Unpack_json_MQTT_ResvData(uint8 * ResvData)
@@ -603,13 +603,19 @@ int MQTT_Init(void)
 	
 	
 	
-	domain_ip[0] = 47;
-	domain_ip[1] = 98;
-	domain_ip[2] = 136;
-	domain_ip[3] = 66;
+	//domain_ip[0] = 47;
+	//domain_ip[1] = 98;
+	//domain_ip[2] = 136;
+	//domain_ip[3] = 66;
+	domain_ip[0] = 121;
 
-	ConnectNetwork(&network, domain_ip, 1883);
-	UART_Printf("IP地址: %d.%d.%d.%d,%d\r\n", domain_ip[0],domain_ip[1],domain_ip[2],domain_ip[3],1883);
+	domain_ip[1] = 89;
+
+	domain_ip[2] = 170;
+	domain_ip[3] = 53;
+
+	ConnectNetwork(&network, domain_ip, 1884);
+	UART_Printf("IP地址: %d.%d.%d.%d,%d\r\n", domain_ip[0],domain_ip[1],domain_ip[2],domain_ip[3],1884);
 	MQTTClientInit(&mqttclient,&network,1000,SendBuffer,1200,tempBuffer,10);
 	
 	delay_ms(500);
@@ -620,8 +626,8 @@ int MQTT_Init(void)
 	connectData.MQTTVersion = 3;
 //	connectData.clientID.cstring = "stdout-subscriber";    //opts.clientid;
 	connectData.clientID.cstring = "w5500-client";    //opts.clientid;
-	connectData.username.cstring = "admin"; //opts.username;
-	connectData.password.cstring = "public"; //opts.password; 
+	connectData.username.cstring = ""; //opts.username;admin
+	connectData.password.cstring = ""; //opts.password; public
 
 	connectData.keepAliveInterval = 60;
 	connectData.cleansession = 1;
@@ -632,7 +638,7 @@ int MQTT_Init(void)
 		UART_Printf("MQTT Connected\r\n", rc);
 
 	// 订阅主题 Updata Alarm Read_data
-	sprintf(SubTopic,"/WSN_LW/");
+	sprintf(SubTopic,"/WSN-LW/");
 	strcat(SubTopic, Read_ID);
 	strcat(SubTopic, "/service/+");// 订阅参数更新
 	
@@ -643,7 +649,7 @@ int MQTT_Init(void)
 	
 	rc = MQTT_HeartBeat();	// 发送心跳包
 
-	UART_Printf("MQTT HeartBeat Resulu %d \r\n",rc);       	         //串口输出信息
+	UART_Printf("MQTT Heartbeat Resulu %d \r\n",rc);       	         //串口输出信息
 
 	return rc;
 }
@@ -652,28 +658,32 @@ int MQTT_Init(void)
  * @name: Creat_json_MQTT_SendData
  * @test: test font
  * @msg: 创建一个json格式的数据上传的数据格式
- * @param {Pub_State}  0 : SendDate 1 : HeartBeat
+ * @param {Pub_State}  0 : SendDate 1 : Heartbeat
  * @return: char * json数据
  */
 size_t HeartBeat_lenght = 0;
 size_t SendData_lenght = 0; 
-
-uint8_t DataRiver[(PacksSensorNum * 10 )+ 1]  ; 
+uint16_t Pack_Num_Last = 0;		//传感器少于40
+uint8_t DataRiver[(PacksSensorNum * 10 )+ 1]  ;  
 char * Creat_json_MQTT_SendData(uint8 Pub_State,uint8 Pack_NUM)
 {
 	cJSON * usr; 
 	uint8 * out ;
+	uint32_t NewTime = 0;
 	usr = cJSON_CreateObject(); //创建根数据对象
-
+	uint8_t DataRiver_TempForLess[(PacksSensorNum * 10 )+ 1]  ; 
 	switch (Pub_State)
 	{
+		 //MQTT数据上报-传感器大于40个
 	case MQTT_Publish_Type_SendData:
 		/* code */
 		//若传感器数量错误，给一个默认值
 		if(MQTT_Resv_SensorNum == 0){MQTT_Resv_SensorNum = SensorNum;} 
+
+		memset(DataRiver,0x00, 401 );
 		memcpy(DataRiver,DataToSendBuffer + ((PacksSensorNum * 10) * (Pack_NUM-1)) ,(PacksSensorNum * 10)); 
 		//字符串休止'/0'
-		DataRiver[(PacksSensorNum * 10 )] = 0x00 ;
+		DataRiver[(PacksSensorNum * 10 )] = '\0' ;
 
     	cJSON_AddItemToObject(usr, "SensorNum", cJSON_CreateNumber(PacksSensorNum));
 		cJSON_AddItemToObject(usr, "SensorStart", cJSON_CreateNumber(((Pack_NUM -1)*PacksSensorNum )+ 1));
@@ -685,18 +695,21 @@ char * Creat_json_MQTT_SendData(uint8 Pub_State,uint8 Pack_NUM)
 		
 		UART_Printf("\r\nDataToSendBuffer : %s \r\n",DataRiver)  ;
 		
-		SendData_lenght = strlen(out) +1; 
-		 
-		UART_Printf("\r\nSendData_lenght : %d \r\n" , SendData_lenght);
+		SendData_lenght = strlen(out)  ; 
+ 
+		UART_Printf("\r\n SendData_lenght : %d \r\n" , SendData_lenght);
 
 		// 释放内存 
 		cJSON_Delete(usr); 
 		free(out);
 
 		return out;  
+	//MQTT心跳数据上报
 	case MQTT_Publish_Type_HeartBeat: 
+		
+		NewTime = GetSystemNowtime();
 		 
-		cJSON_AddItemToObject(usr,"HeartBeat",cJSON_CreateNumber(999));
+		cJSON_AddItemToObject(usr,"Heartbeat",cJSON_CreateNumber(NewTime));
 
 		out = cJSON_Print(usr); //将json形式打印成正常字符串形式
 
@@ -709,7 +722,35 @@ char * Creat_json_MQTT_SendData(uint8 Pub_State,uint8 Pack_NUM)
 		free(out);
 		
 		return out;  
+	//传感器数量少于40
+	case MQTT_Publish_Type_CountLess40 :
+		//若传感器数量错误，给一个默认值
+		UART_Printf("PacksSensorNum Less than 40 \r\n ");
+		if(MQTT_Resv_SensorNum == 0){MQTT_Resv_SensorNum = SensorNum;}
 
+		memset(DataRiver_TempForLess,0x00,Pack_Num_Last*10);
+		memcpy(DataRiver_TempForLess,DataToSendBuffer + ((Pack_Num_Last * 10) * (Pack_NUM-1)) ,(Pack_Num_Last * 10)); 
+		//字符串休止'/0'
+		DataRiver_TempForLess[(Pack_Num_Last * 10 )] = 0x00 ;
+
+    	cJSON_AddItemToObject(usr, "SensorNum", cJSON_CreateNumber(Pack_Num_Last));
+		cJSON_AddItemToObject(usr, "SensorStart", cJSON_CreateNumber(((Pack_NUM -1)*Pack_Num_Last )+ 1));
+		cJSON_AddItemToObject(usr, "SensorData", cJSON_CreateString(DataRiver_TempForLess)); 
+
+		out = cJSON_Print(usr); //将json形式打印成正常字符串形式
+		
+		UART_Printf("json Data : %s\r\n",out);
+		
+		UART_Printf("\r\n DataRiver_TempForLess : %s \r\n",DataRiver_TempForLess)  ;
+		
+		SendData_lenght = strlen(out) ; 
+		 
+		UART_Printf("\r\nSendData_lenght : %d \r\n" , SendData_lenght);
+
+		// 释放内存 
+		cJSON_Delete(usr); 
+		free(out); 
+		return out;
 	default:
 
 		break;
@@ -723,7 +764,7 @@ int MQTT_HeartBeat(void)
 	
 	static uint16_t mes_id = 0;
 	
-	sprintf(Topic,"/WSN_LW/");
+	sprintf(Topic,"/WSN-LW/");
 	strcat(Topic, Read_ID);
 	strcat(Topic, "/event/Heartbeat");
 	
@@ -760,20 +801,30 @@ int MQTT_SendData(void)
 	static uint16_t mes_id = 0; 
 	DOUBLE_LINK_NODE *pNode;
 	uint8_t tag_cnt	 = 0;
-	uint8_t Pack_Num = 0; 
+	uint8_t Pack_Num = 0;  
 	//默认120个从机
 	if(MQTT_Resv_SensorNum == 0){MQTT_Resv_SensorNum = SensorNum;}
 	//计算包数
-	Pack_Num = MQTT_Resv_SensorNum / PacksSensorNum;
-	if (MQTT_Resv_SensorNum % PacksSensorNum )
+	if (MQTT_Resv_SensorNum >= 40)
 	{
-		Pack_Num ++;
+		/* code */	
+		Pack_Num = MQTT_Resv_SensorNum / PacksSensorNum;
+		if (MQTT_Resv_SensorNum % PacksSensorNum )
+		{
+			Pack_Num ++;
+		}
+		UART_Printf("Pack_Num is ---------------: %d\r\n" ,Pack_Num);
 	}
-	UART_Printf("Pack_Num is ---------------: %d\r\n" ,Pack_Num);
+	else if (MQTT_Resv_SensorNum < 40)
+	{
+		Pack_Num = 1; 
+		Pack_Num_Last = MQTT_Resv_SensorNum;
+	}
+	DISABLE_GLOBAL_INTERRUPT();
 	//分包发送
 	for (uint8_t i = 1; i <= Pack_Num; i++)
 	{	
-		sprintf(Topic,"/WSN_LW/");
+		sprintf(Topic,"/WSN-LW/");
 		strcat(Topic, Read_ID);
 		strcat(Topic, "/event/Data");
 		
@@ -781,16 +832,23 @@ int MQTT_SendData(void)
 		userInfo.protocoltype = "w5500";
 		userInfo.n_cardlist = tag_cnt;
 		userInfo.cardlist = cardInfo_p;
-		DISABLE_GLOBAL_INTERRUPT();
+		
 		pNode = (&RADIO_DATA_LIST_HEAD)->next;  
 		mqtt_msg.qos = QOS0;
 		mqtt_msg.retained = 0;
 		mqtt_msg.id = mes_id++;
-		mqtt_msg.dup = 0;	
-		
-		mqtt_msg.payloadlen = SendData_lenght ;//lenght;
+		mqtt_msg.dup = 0;	 
 
-		mqtt_msg.payload = Creat_json_MQTT_SendData(MQTT_Publish_Type_SendData,i) ;  
+		if (MQTT_Resv_SensorNum >= 40)
+		{  
+			mqtt_msg.payload = Creat_json_MQTT_SendData(MQTT_Publish_Type_SendData,i) ;   
+		}
+		else
+		{
+			mqtt_msg.payload = Creat_json_MQTT_SendData(MQTT_Publish_Type_CountLess40,i) ; 
+		}
+
+		mqtt_msg.payloadlen = SendData_lenght ;//lenght;
 
 		rc = MQTTPublish(&mqttclient, Topic, &mqtt_msg);
 

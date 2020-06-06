@@ -109,6 +109,7 @@ extern uint8_t MQTT_Relay_AlarmCount_flag ;
 
 extern uint32_t MQTT_Relay_AlarmCount ;
 
+extern bool First_Power_ON_Flag;
 #if defined __cplusplus
 }
 #endif
