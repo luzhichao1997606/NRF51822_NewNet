@@ -17,21 +17,39 @@
 #include "dhcp.h"
 #include "dns.h"
 #include "MQTTClient.h"
-
+#include "ble_flash.h"
 /*************************protobuf-c*****************************/
 
 #include "UserInformation.pb-c.h"
 
-#define CardNum			10
-#define PacksSensorNum	40
-//typedef union node_package
-//{
-//    struct {
-//        uint8_t id[4];  /* serial number array */
-//        uint8_t rssi;    /* typically, 0xff */
-//    }t;
-//    uint8_t buf[5];
-//}node_pkg_t;
+
+#define 	CardNum				10
+#define 	PacksSensorNum		40
+#define		STORE_MAGIC		0x12345679
+#define   	STORE_PAGE			127
+
+/*默认数据*/
+//Alarm 订阅解析
+uint8_t MQTT_Resv_Alarm = 0;
+uint8_t *MQTT_Resv_AlarmData ;
+//Read_Data 订阅解析
+uint8_t MQTT_Resv_Read_data = 	0;
+//Updata 订阅解析
+uint8_t MQTT_Resv_Cycle 	  =	1;  // 上报周期，单位分钟，1~255
+uint8_t MQTT_Resv_AlarmTime   =	10; // 报警持续时间，单位分钟，0~255，0不报警，255持续报警 
+uint8_t MQTT_Resv_Channel     =	30; // 工作信道（传参到NRF24L01）
+uint8_t MQTT_Resv_SensorNum   =	120;// 1-240 该数传设备下面的采集模块数量(配置数组)
+uint8_t MQTT_Resv_SensorCycle =	35; // 传感器上报周期，单位分钟，10~255，最低10分钟(清除数组数据) 
+ 
+typedef struct
+{
+	uint8_t		MQTT_Resv_Cycle; 			// 上报周期，单位分钟，1~255
+	uint8_t		MQTT_Resv_AlarmTime; 		// 报警持续时间，单位分钟，0~255，0不报警，255持续报警 
+	uint8_t		MQTT_Resv_Channel; 			// 工作信道（传参到NRF24L01）
+	uint8_t		MQTT_Resv_SensorNum ;		// 1-240 该数传设备下面的采集模块数量(配置数组)
+	uint8_t 	MQTT_Resv_SensorCycle ;		// 传感器上报周期，单位分钟，10~255，最低10分钟(清除数组数据) 
+	uint8_t 	POWER_ON_COUNT  ;
+}para_cfg_t;
 
 extern uint8_t		Read_ID[16] ;
 extern uint8_t 		DataToSendBuffer[2400] ;
@@ -81,7 +99,55 @@ char SubTopic[50] = "/WSN-LW/";
 MQTTClient mqttclient;
 MQTTMessage mqtt_msg;
 Network network;
+para_cfg_t MQTT_Save_Data ;
+/*存储清除*/
+void  store_clear(uint32_t page)
+{
+	 nrf_nvmc_page_erase(page*1024ul);
+}
+/*参数存储*/
+void  para_store(uint32_t page,para_cfg_t para)
+{
+	nrf_nvmc_write_bytes(page*1024ul,(const uint8_t*)&para,sizeof(para_cfg_t));
+}
+/*参数读取*/
+void  para_read(uint32_t page,para_cfg_t *ppara)
+{
+	volatile uint8_t *p;
+	
+	p =(volatile uint8_t*)(page*1024ul);
+	
+	memcpy((uint8_t*)ppara,(uint8_t*)p,sizeof(para_cfg_t));
+	//第一次上电，flash没有存储数据
+	if(		ppara->MQTT_Resv_Cycle 			== 0 
+		&& 	ppara->MQTT_Resv_AlarmTime 		== 0
+		&& 	ppara->MQTT_Resv_Channel 		== 0
+		&& 	ppara->MQTT_Resv_SensorNum 		== 0
+		&& 	ppara->MQTT_Resv_SensorCycle 	== 0
+		&&  ppara->POWER_ON_COUNT			== 0
+		) 
+	{
+		//赋值默认数值
+		ppara->MQTT_Resv_Cycle 			= 	1;  // 上报周期，单位分钟，1~255
+		ppara->MQTT_Resv_AlarmTime 		=	10; // 报警持续时间，单位分钟，0~255，0不报警，255持续报警 
+		ppara->MQTT_Resv_Channel   		=	30; // 工作信道（传参到NRF24L01）
+		ppara->MQTT_Resv_SensorNum		=	120;// 1-240 该数传设备下面的采集模块数量(配置数组)
+		ppara->MQTT_Resv_SensorCycle 	=	35; // 传感器上报周期，单位分钟，10~255，最低10分钟(清除数组数据) 
 
+	}
+	//如果之前就有数据说明存储过数据，所以将数据赋值给全局参数。
+	else
+	{
+		MQTT_Resv_Cycle 		= 	ppara->MQTT_Resv_Cycle 	;	
+		MQTT_Resv_AlarmTime 	= 	ppara->MQTT_Resv_AlarmTime 	;
+		MQTT_Resv_Channel 		= 	ppara->MQTT_Resv_Channel   	;
+		MQTT_Resv_SensorNum 	= 	ppara->MQTT_Resv_SensorNum	;
+		MQTT_Resv_SensorCycle 	= 	ppara->MQTT_Resv_SensorCycle ;
+	}
+	
+ 
+	return;
+}
 /* Private macro -------------------------------------------------------------*/
 uint8_t gDATABUF[DATA_BUF_SIZE];//获取数据的缓冲区：2048
 
@@ -434,18 +500,6 @@ int NetworkInitHandler(void)
  * @param {type} 
  * @return: 
  */
-/*默认数据*/
-//Alarm 订阅解析
-uint8_t MQTT_Resv_Alarm = 0;
-uint8_t *MQTT_Resv_AlarmData ;
-//Read_Data 订阅解析
-uint8_t MQTT_Resv_Read_data = 	0;
-//Updata 订阅解析
-uint8_t MQTT_Resv_Cycle 	= 	1; // 上报周期，单位分钟，1~255
-uint8_t MQTT_Resv_AlarmTime =	10;// 报警持续时间，单位分钟，0~255，0不报警，255持续报警 
-uint8_t MQTT_Resv_Channel   =	30;// 工作信道（传参到NRF24L01）
-uint8_t MQTT_Resv_SensorNum =	120;// 1-240 该数传设备下面的采集模块数量(配置数组)
-uint8_t MQTT_Resv_SensorCycle =	35;// 传感器上报周期，单位分钟，10~255，最低10分钟(清除数组数据) 
 int Unpack_json_MQTT_ResvData(uint8 * ResvData)
 {
 	cJSON *json;
@@ -499,16 +553,17 @@ int Unpack_json_MQTT_ResvData(uint8 * ResvData)
 			UART_Printf("Read_data: %d\n", MQTT_Resv_Read_data); 
 		}  
 		 
-	}	
-
+	}	 
 	//Updata 订阅解析
 	if( strchr(TempBuffer_Json,'C') != NULL)
 	{
 		json_value = cJSON_GetObjectItem(json, "Cycle"); 
+		store_clear(STORE_PAGE);
 		if(json_value->type == cJSON_Number)
 		{
 			 // 上报周期，单位分钟，1~255(OK)
 			MQTT_Resv_Cycle = json_value->valueint;
+			MQTT_Save_Data.MQTT_Resv_Cycle = MQTT_Resv_Cycle; 
 			UART_Printf("Cycle: %d\n", MQTT_Resv_Cycle);
 		} 
 
@@ -517,6 +572,7 @@ int Unpack_json_MQTT_ResvData(uint8 * ResvData)
 		{	
 			// 报警持续时间，单位分钟，0~255，0不报警，255持续报警 
 			MQTT_Resv_AlarmTime = json_value_1->valueint;
+			MQTT_Save_Data.MQTT_Resv_AlarmTime = MQTT_Resv_AlarmTime; 
 			UART_Printf("AlarmTime: %d\n", MQTT_Resv_AlarmTime);
 		}  
 
@@ -525,6 +581,7 @@ int Unpack_json_MQTT_ResvData(uint8 * ResvData)
 		{
 			// 工作信道
 			MQTT_Resv_Channel = json_value_2->valueint;
+			MQTT_Save_Data.MQTT_Resv_Channel = MQTT_Resv_Channel; 
 			UART_Printf("Channel ：%d\n", MQTT_Resv_Channel);
 		}   
 
@@ -533,6 +590,7 @@ int Unpack_json_MQTT_ResvData(uint8 * ResvData)
 		{
 			// 1-240 该数传设备下面的采集模块数量(OK?)
 			MQTT_Resv_SensorNum = json_value_3->valueint;
+			 MQTT_Save_Data.MQTT_Resv_SensorNum = MQTT_Resv_SensorNum; 
 			UART_Printf("SensorNum ：%d\n", MQTT_Resv_SensorNum);
 		}
 		
@@ -542,9 +600,19 @@ int Unpack_json_MQTT_ResvData(uint8 * ResvData)
 			// 传感器上报周期，单位分钟，10~255，最低10分钟 
 			// 将数据本地保存，防止无线没收到时数据丢失
 			MQTT_Resv_SensorCycle = json_value_4->valueint;
+			MQTT_Save_Data.MQTT_Resv_SensorCycle = MQTT_Resv_SensorCycle; 
 			UART_Printf("SensorCycle ：%d\n", MQTT_Resv_SensorCycle);
-		}
-		 
+		}	
+		//存储
+		para_store(STORE_PAGE,MQTT_Save_Data); 		
+
+		MQTT_Save_Data.MQTT_Resv_Cycle 			= 0;
+		MQTT_Save_Data.MQTT_Resv_AlarmTime 		= 0;
+		MQTT_Save_Data.MQTT_Resv_Channel 		= 0;
+		MQTT_Save_Data.MQTT_Resv_SensorNum 		= 0;
+		MQTT_Save_Data.MQTT_Resv_SensorCycle 	= 0;
+		MQTT_Save_Data.POWER_ON_COUNT			= 1;
+	
 	}
 
     cJSON_Delete(json); 
@@ -600,7 +668,7 @@ int MQTT_Init(void)
 	NewNetwork(&network, SOCK_TCPS);
 	
 	UART_Printf("准备连接服务器\r\n");                //串口输出信息
-	
+	__disable_interrupt();
 	
 	
 	//domain_ip[0] = 47;
@@ -650,7 +718,10 @@ int MQTT_Init(void)
 	rc = MQTT_HeartBeat();	// 发送心跳包
 
 	UART_Printf("MQTT Heartbeat Resulu %d \r\n",rc);       	         //串口输出信息
-
+	para_read(STORE_PAGE,&MQTT_Save_Data);
+	//清除NRF24L01数组中的数据
+	Clear_ALL_nrf24l01_TempData(); 
+	__enable_interrupt();
 	return rc;
 }
 
@@ -787,8 +858,7 @@ int MQTT_HeartBeat(void)
 	//IR_SendData(	Creat_json_MQTT_SendData(MQTT_Publish_Type_HeartBeat)
 	//				,HeartBeat_lenght);
 	UART_Printf("\r\nPublish %d\r\n", rc);
-	UART_Printf( "HeartBeating............" );
-	
+	UART_Printf( "HeartBeating............" ); 
 	return rc;
 
 }
@@ -860,7 +930,7 @@ int MQTT_SendData(void)
 		UART_Printf("Sending.........");  
 
 		nrf_delay_ms(1500);
-	} 
+	}  
 
 	ENABLE_GLOBAL_INTERRUPT();
 	return rc;

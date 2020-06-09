@@ -56,6 +56,10 @@ C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500
 -I
 C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\nrf24l01
 -I
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\ble_flash
+-I
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf
+-I
 C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.3\arm\inc
 -I
 C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.3\arm\inc\c
@@ -113,6 +117,10 @@ C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500
 C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\protobuf_c
 -I
 C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\nrf24l01
+-I
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\drivers_nrf\ble_flash
+-I
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\drivers_nrf
 -DNRF51=1
 -DNRF51822=1
 -D__CHAR_BITS__=8

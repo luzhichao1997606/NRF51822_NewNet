@@ -536,6 +536,8 @@ void SoftWareTimeingEventInLoop(void)
            MQTT_Relay_AlarmCount_flag = 1;
            MQTT_Relay_AlarmCount = newTime;
         } 
+        Clear_Buffer_TimeOutTask();  //清除Buffer数据
+		NRF_ALLReflash_Channel();	 //NRF刷新通道
     }
 
     LoopTimeEvents|=LoopTimeEventstmp;

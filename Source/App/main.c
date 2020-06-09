@@ -179,9 +179,7 @@ uint32_t NewTime = 0;
 		/*事件在环执行*/
 		SoftWareEventInLoop();  
 		SoftWareTimeingEventInLoop(); 
-		Clear_Buffer_TimeOutTask(); 
-		Realy_TimeOutTask();
-		//NRF_ALLReflash_Channel();
+		Realy_TimeOutTask();		//继电器超时事件 
 	}
     
 } 

@@ -145,6 +145,7 @@ void nRF24L01_2_IRQ(void);
 void Clear_Buffer_TimeOutTask(void);
 
 void NRF_ALLReflash_Channel(void);
+void Clear_ALL_nrf24l01_TempData(void);
 /******************************************************************************/
 /***        Local Functions                                                 ***/
 /******************************************************************************/

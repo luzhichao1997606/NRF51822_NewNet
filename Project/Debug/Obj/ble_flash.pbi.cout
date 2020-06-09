@@ -1,4 +1,4 @@
-"C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\App\radio_config.c"
+"C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\drivers_nrf\ble_flash\ble_flash.c"
 -std=c99
 -ferror-limit=100
 -I

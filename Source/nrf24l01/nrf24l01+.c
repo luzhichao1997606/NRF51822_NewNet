@@ -273,7 +273,26 @@ void HexToStr(uint8_t *pbDest, uint8_t *pbSrc, int nLen)
 
 	pbDest[nLen*2] = '\0';
 }
-
+//清除NRF24L01的暂存数据
+void Clear_ALL_nrf24l01_TempData(void)
+{
+	for (uint16_t i = 0; i < DEVICE_COUNT; i++)
+	{ 
+		//清除每个数组的时钟计时
+		NRF_Data_Poll_1.NRF24L01_Time_Count[i] = 0 ;
+		//将原始数据清除
+		for (int j = 0; j < 5; j++)
+		{ 
+			NRF_Data_Poll_1.NRF24L01_Buf[((i)* 5 + j)] = 0x00 ;  
+		} 
+		//将发送数据也清除
+		for (uint16_t k = 0; k < 10; k++)
+		{
+			DataToSendBuffer[((i)* 10 + k)] = 0x30 ; 
+		} 
+	} 
+	UART_Printf("\r\n 清除所有NRF24L01的暂存数据 \r\n");
+}
  /**
   * @name: Clear_Buffer_TimeOutTask
   * @test:  
@@ -454,7 +473,7 @@ void nRF24L01_2_IRQ(void)
     nRF24L01_2_EnterRxMode(); // 进入接收模式
 }
 
-//没有进行测试
+//已经进行测试
 uint8_t Saved_Channel = 0;
 void NRF_ALLReflash_Channel(void)
 {
@@ -464,6 +483,7 @@ void NRF_ALLReflash_Channel(void)
 		ADDR_Save_Data = MQTT_Resv_Channel ;
 		nRF24L01_EnterRxMode(); 				 // 进入接收模式
 		nRF24L01_2_EnterRxMode();				 // 进入接收模式
+		UART_Printf("更新NRF通道值，现在通道是%d \r\n" , ADDR_Save_Data);
 	} 
 		Saved_Channel = ADDR_Save_Data ; 
 }

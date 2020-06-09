@@ -338,6 +338,8 @@
           <state>$PROJ_DIR$\..\Source\cJSON</state>
           <state>$PROJ_DIR$\..\Source\protobuf_c</state>
           <state>$PROJ_DIR$\..\Source\nrf24l01</state>
+          <state>$PROJ_DIR$\..\Source\components\drivers_nrf\ble_flash</state>
+          <state>$PROJ_DIR$\..\Source\components\drivers_nrf</state>
         </option>
         <option>
           <name>CCStdIncCheck</name>
@@ -2009,6 +2011,9 @@
     <group>
       <name>nRF_Drivers</name>
       <file>
+        <name>$PROJ_DIR$\..\Source\components\drivers_nrf\ble_flash\ble_flash.c</name>
+      </file>
+      <file>
         <name>$PROJ_DIR$\..\Source\components\drivers_nrf\delay\nrf_delay.c</name>
       </file>
       <file>
@@ -2025,6 +2030,9 @@
       </file>
       <file>
         <name>$PROJ_DIR$\..\Source\components\drivers_nrf\hal\nrf_nvmc.c</name>
+      </file>
+      <file>
+        <name>$PROJ_DIR$\..\Source\components\drivers_nrf\nrf_soc_nosd\nrf_soc.c</name>
       </file>
     </group>
     <group>
