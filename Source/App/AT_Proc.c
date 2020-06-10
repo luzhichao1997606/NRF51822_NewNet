@@ -8,10 +8,10 @@
 #include "AT_Proc.h"
 #include "hal.h"    //∞¸∫¨–Ë“™µƒÕ∑Œƒº˛
 #include "Uart.h"	
-
+#include "cJSON.h"
 #include <string.h>
 #include "mystring.h"
-
+#include "app.h"
 #include "NetHandler.h"
 
 static uint8_t CurrentRty;                                                 //÷ÿ∑¢¥Œ ˝
@@ -21,11 +21,11 @@ teNB_TaskStatus NB_TaskStatus;                                             //AT÷
 teATCmdNum ATNextCmdNum;                                                   //œ¬Ãı÷∏¡Ó
 teATCmdNum ATCurrentCmdNum;                                                //µ±«∞÷∏¡Ó
 
-char NB_SendDataBuff[350];
+char NB_SendDataBuff[500];
 char CSQ_buffer[3];
 char topic_msg[44];
 char IMEI_buf[22];
-uint8_t IMEI_flag =0;
+uint8_t IMEI_flag =0;                                                  //
 uint8_t find_string_flag =0;
 uint32_t First_open_flag = 0;
 uint16_t ADC_val =0;
@@ -33,16 +33,16 @@ uint8_t NB_reset_time = 5;                                                 //∏¥Œ
 uint8_t AT_error_time = 50;                                                //Õ¯¬Á…œ ±º‰≥¢ ‘¥Œ ˝
 uint32_t RTC_Time = 30*60;                                                 //RTCªΩ–— ±º‰
 uint8_t my_sleep = 0;                                                      //–›√ﬂø™πÿ£®0Œ™πÿ±’£°*≥ı—ß’ﬂ≤ª“™–ﬁ∏ƒ*£©
-
+uint8_t GPRS_InitOver_Flag = 0;
 tsATCmds ATCmds[] =                                                        //AT÷∏¡Ó¡–±Ì
 {
-	{"AT\r\n","OK",200,NO_REC,100},                                     	   //πÿ±’ªÿœ‘≤‚ ‘
-	{"ATE0\r\n","OK",200,NO_REC,100},                                   	   //πÿ±’ªÿœ‘≤‚ ‘
-	{"AT+CIPHEAD=0\r\n", "OK",200,NO_REC,2},                              	   //Ω” ’ ˝æ› ± «∑Ò‘ˆº” IP Õ∑Ã· æ 
-	{"AT+CPIN?\r\n", "READY",100,NO_REC,10}, 									//≤È—ØPIN¬ÎÀ¯◊¥Ã¨
+	{"AT\r\n","OK",200,NO_REC,100},                                         //πÿ±’ªÿœ‘≤‚ ‘
+	{"ATE0\r\n","OK",200,NO_REC,100},                                       //πÿ±’ªÿœ‘≤‚ ‘
+	{"AT+CIPHEAD=0\r\n", "OK",200,NO_REC,2},                                //Ω” ’ ˝æ› ± «∑Ò‘ˆº” IP Õ∑Ã· æ 
+	{"AT+CPIN?\r\n", "READY",100,NO_REC,10},                                //≤È—ØPIN¬ÎÀ¯◊¥Ã¨
 	
-	{"AT+CREG=0\r\n", "OK",100,NO_REC,10},			//Õ¯¬Á◊¢≤·–≈œ¢
-	{"AT+CREG?\r\n", "+CREG:",100,NO_REC,255},	 //µ»¥˝◊§Õ¯£¨≥¢ ‘¥Œ ˝∏˘æ›µ±µÿ–≈∫≈≤ªÕ¨
+	{"AT+CREG=0\r\n", "OK",100,NO_REC,10},			                        //Õ¯¬Á◊¢≤·–≈œ¢
+	{"AT+CREG?\r\n", "+CREG:",100,NO_REC,255},                              //µ»¥˝◊§Õ¯£¨≥¢ ‘¥Œ ˝∏˘æ›µ±µÿ–≈∫≈≤ªÕ¨
 
 	{"AT+COPS=3,2\r\n", "OK",100,NO_REC,10},
 	{"AT+COPS?\r\n", "+COPS:",100,NO_REC,10},	
@@ -50,43 +50,80 @@ tsATCmds ATCmds[] =                                                        //AT÷
 	{"AT+CSQ\r\n","+CSQ:",200,NO_REC,3},                                    //≤È—Ø–≈∫≈
 	{"AT+CGATT?\r\n","+CGATT: 1",200,NO_REC,255},  
 	
-	{"AT+CIPSHUT\r\n","OK",200,NO_REC,1},							//πÿ±’GPRS(PDP…œœ¬Œƒ»•º§ªÓ)
-	{"AT+CSTT=\"cmnet\"\r\n","OK",200,NO_REC,1},   //…Ë÷√APN
-	{"AT+CIICR\r\n","OK",200,NO_REC,1},							//º§ªÓGPRS¡¨Ω”
-	{"AT+CIFSR\r\n",".",200,NO_REC,1},						// ªÒ»°±æª˙µÿ÷∑
-//	{"AT+CIPCSGP?\r\n","+CIPCSGP: 1,\"cmnet\"",200,NO_REC,1},
-	{"AT+CIPSTART=\"TCP\",\"www.cortp.com\",\"7211\"\r\n","CONNECT OK",3000,NO_REC,1},
-	
-	{"AT+CIPSEND=","CLOSED",6000,NO_REC,1},
+	  
+    {"AT+CIPSHUT\r\n","OK",200,NO_REC,2},                                   //πÿ±’GPRS(PDP…œœ¬Œƒ»•º§ªÓ)
+    {"AT+CSTT=\"cmnet\"\r\n","OK",200,NO_REC,1},                            //…Ë÷√APN
+    {"AT+CIICR\r\n","OK",200,NO_REC,10},                                    //º§ªÓGPRS¡¨Ω”
+    {"AT+CIFSR\r\n",".",200,NO_REC,10},                                     // ªÒ»°±æª˙µÿ÷∑
 
-	/***********/
-	
-////	{"AT\r\n","OK",200,NO_REC,100},                                     	   //πÿ±’ªÿœ‘≤‚ ‘
-////	{"ATE0\r\n","OK",200,NO_REC,100},                                   	   //πÿ±’ªÿœ‘≤‚ ‘
-////	{"AT+GMR\r\n","ME3616",200,NO_REC,3},                                 	 //Œ —Ø∞Ê±æ
-////	{"ATI\r\n","OK",200,NO_REC,3},                                        	 //Œ —Øƒ£◊È–≈œ¢IMEI
-////	{"AT+ZCONTLED=1\r\n","OK",1000,NO_REC,2},                             	 //ø™µ∆°¢–›√ﬂµƒª∞–Ë“™πÿµ∆
-////	
-////	{"AT+ZSLR?\r\n","+ZSLR:1",2000,NO_REC,2},                            	  // «∑Ò“—≈‰÷√–›√ﬂƒ£ Ω
-////	{"AT+ZSLR=1\r\n","OK",1000,NO_REC,2},                               	   //≈‰÷√–›√ﬂƒ£ Ω
-////	{"AT+CPSMS?\r\n","+CPSM",2000,NO_REC,2},                             	  // «∑Ò≈‰÷√–›√ﬂ ±÷”
-////	{"AT+CPSMS=1,,,\"00011000\",\"00001010\"\r\n","OK",2000,NO_REC,2},   	  //≈‰÷√–›√ﬂ ±÷” 20S
-////	
-////	{"AT+CSQ\r\n","+CSQ:",200,NO_REC,3},                                    //≤È—Ø–≈∫≈
-////	{"AT+CEREG?\r\n","+CEREG: 0,1",200,NO_REC,255},                        //µ»¥˝◊§Õ¯£¨≥¢ ‘¥Œ ˝∏˘æ›µ±µÿ–≈∫≈≤ªÕ¨
-////	
-////	{"AT+ECOAPNEW=106.13.150.28,5683,1\r\n","+ECOAPNEW:",3000,NO_REC,3},    //–¬Ω®COAP¡¥Ω”
-////	{"AT+CSQ\r\n","+CSQ:",200,NO_REC,3},                                    //Œ —Ø–≈∫≈÷µ
-////	{"AT+CCLK?\r\n","GMT",200,NO_REC,2},                                   //Œ —ØÕ¯¬Á ±º‰
-////	{"AT+ECOAPSEND=1,","COAPNMI:",10000,NO_REC,5},                         //∑¢ÀÕCOAP ˝æ›∞¸  ¥À√¸¡Ó—” ±”Î–≈∫≈”–πÿ
-////	{"AT+ECOAPDEL=1\r\n","OK",2000,NO_REC,3},                              //∂œø™COAP¡¥Ω”
-////	{"AT+ZRST","OK",2000,NO_REC,3},                                        //∏¥Œªƒ£◊È£®Ω®“È”√”≤º˛∏¥Œª£©
-};
+    {"AT+MCONFIG=\"cellid\",\"\",\"\"\r\n","OK",200,NO_REC,1},  
 
+    {"AT+MIPSTART=\"121.89.170.53\",\"1884\"\r\n","CONNECT OK",1000,NO_REC,2}, 
+
+    {"AT+MCONNECT=1,60\r\n","CONNACK OK",300,NO_REC,255}, 
+    {"AT+MQTTMSGSET=1\r\n","OK",10,NO_REC,1},  
+
+    {"AT+MPUB=\"/WSN-LW/20010333/event/Data\",0,0,\"9999\"\r\n","OK",200,NO_REC,35}, 
+
+
+	
+ };
+
+void str_replace(char * cp, int n, char * str)
+{
+	int lenofstr;
+	int i;
+	char * tmp;
+	lenofstr = strlen(str); 
+	//str3±»str2∂Ã£¨Õ˘«∞“∆∂Ø 
+	if(lenofstr < n)  
+	{
+		tmp = cp+n;
+		while(*tmp)
+		{
+			*(tmp-(n-lenofstr)) = *tmp; //n-lenofstr «“∆∂Øµƒæ‡¿Î 
+			tmp++;
+		}
+		*(tmp-(n-lenofstr)) = *tmp; //move '\0'	
+	}
+	else
+	        //str3±»str2≥§£¨Õ˘∫Û“∆∂Ø
+		if(lenofstr > n)
+		{
+			tmp = cp;
+			while(*tmp) tmp++;
+			while(tmp>=cp+n)
+			{
+				*(tmp+(lenofstr-n)) = *tmp;
+				tmp--;
+			}   
+		}
+	strncpy(cp,str,lenofstr);
+}
+//str1Œ™¥´»Î ˝æ›£¨str2Œ™–Ë“™ÃÊªªµƒ◊÷∑˚¥Æ,str3Œ™º∆ªÆÃÊªªµƒ◊÷∑˚¥Æ,
+char * jsondata_change_toGPRS(char * str1,char * str2,char *str3)
+{
+    int i,len,count=0;
+    char c;
+   	char *p;  	
+	//ø™ º≤È’“◊÷∑˚¥Æstr2 
+   	p = strstr(str1,str2);
+   	while(p)
+	{
+		count++;
+		//√ø’“µΩ“ª∏ˆstr2£¨æÕ”√str3¿¥ÃÊªª 
+		str_replace(p,strlen(str2),str3);
+		p = p+strlen(str3);
+		p = strstr(p,str2);
+	}   	
+    UART_Printf("ÃÊªªÕÍ≥…£¨“—æ≠Ω´ %s ÃÊªªŒ™ %s£¨“ªπ≤ %d ∏ˆ \r\n",str2,str3,count);
+    return str1;
+}
 /*-------------------------------------------------*/
 /*∫Ø ˝√˚£∫ ∑¢ÀÕAT÷∏¡Ó                      */
 /*≤Œ   ˝£∫ATCmdNum∂‘”¶µƒAT÷∏¡Ó                     */
-/*∑µªÿ÷µ£∫Œﬁ                                       */
+/*∑µªÿ÷µ£∫Œﬁ                                       */    
+
 void ATSend(teATCmdNum ATCmdNum)
 {
 	char MID[5];
@@ -94,34 +131,29 @@ void ATSend(teATCmdNum ATCmdNum)
     char msg[100];         //◊÷∑˚¥Æœ˚œ¢
     char hex_msg[200];     //hex◊™ªª“‘∫Ûµƒœ˚œ¢
     char msg_body[300];    //ÕÍ’˚ ˝æ›∞¸œ˚œ¢
+    char str2[5]="\"";
+    char str3[5]="\\22"; 
     uint16_t msg_len = 0;
 	
 	clearUart();			//«Âø’¥Æø⁄–≈œ¢
 	ATCmds[ATCmdNum].ATStatus = NO_REC;   //…Ë÷√Œ™ Œ¥Ω” ’
     ATRecCmdNum = ATCmdNum;
 	
-	if(ATCmdNum == AT_TCPSEND)
-    {
-		// memset(hex_msg,0x00,sizeof(hex_msg));
-        // memset(MID,0x00,sizeof(MID));
-        // sprintf(MID,"%d",rand()%90+10);  //ÀÊª˙ ˝◊˜Œ™MID π”√  ÷ªƒ‹ «¡ΩŒª ˝À˘“‘…Ë÷√Œ™ 10-99
-        // memset(MID_msg,0x00,sizeof(MID_msg));
-        // str2hex(MID,MID_msg);
-        // memset(topic_msg,0x00,sizeof(topic_msg));
-        // str2hex(IMEI_buf+9,topic_msg);
-        // sprintf(msg,"{\"value\":%d,\"CSQ\":%s}",ADC_val,CSQ_buffer);
-        // UART_Printf("##:SEND_buf:%s,%s\r\n",msg,topic_msg);
-        // str2hex(msg,hex_msg);
-        // memset(msg_body,0x00,sizeof(msg_body));
-        // sprintf(msg_body,"4203%s5562b46d71747409575a2f%s49633d636c69656e743205753d746f6d08703d736563726574ff%s",MID_msg,topic_msg,hex_msg);
-        // msg_len = strlen(msg_body)/2;
-        memset(NB_SendDataBuff,0,sizeof(NB_SendDataBuff));
-//        sprintf(NB_SendDataBuff,"%s%d,%s\r\n",ATCmds[ATCmdNum].ATSendStr,msg_len,msg_body);
-        sprintf(NB_SendDataBuff,"%s%d\r\n",ATCmds[ATCmdNum].ATSendStr,67);
-		// Uart_SendStr((const uint8_t *)ATCmds[ATCmdNum].ATSendStr);
-        Uart_SendStr((const uint8_t *)NB_SendDataBuff);
-        Uart_SendStr("$R,I,D,460,00,1806,3201,0,0,460040883305431,990140123456700301010\r\n");
+	if(ATCmdNum == AT_MPUB)
+    {   
+        //∑¢ÀÕAT√¸¡Ó’˝≥£÷Æ∫ÛΩ¯––∂©‘ƒ
+        memset(NB_SendDataBuff,0,sizeof(NB_SendDataBuff)); 
+        strcat(NB_SendDataBuff,"AT+MSUB=\"/WSN-LW/");
+        strcat(NB_SendDataBuff,Read_ID);
+        strcat(NB_SendDataBuff,"/service/+\",0");
+        //sprintf(NB_SendDataBuff,"%s\r\n",Creat_json_MQTT_SendData(MQTT_Publish_Type_SendData,1)); 
+        //strcat(NB_SendDataBuff,jsondata_change_toGPRS(Creat_json_MQTT_SendData(MQTT_Publish_Type_SendData,1),str2,str3));
+        strcat(NB_SendDataBuff,"\r\n");  
+       // UART_Printf("TestData : %s \r\n",jsondata_change_toGPRS(Creat_json_MQTT_SendData(MQTT_Publish_Type_SendData,1),str2,str3));
+        Uart_SendStr(NB_SendDataBuff);
         UART_Printf("@@ NB_SendDataBuff:%s\r\n",NB_SendDataBuff);  //µ˜ ‘
+        ATRec();
+
     }
 	else	//∑¢ÀÕ∆’Õ®AT√¸¡Ó
 	{
@@ -129,6 +161,68 @@ void ATSend(teATCmdNum ATCmdNum)
 	}
 	//¥Úø™≥¨ ±∂® ±∆˜
     GetTime(&TimeNB,ATCmds[ATCmdNum].TimeOut);
+}
+//GPRSµƒMQTT ˝æ›∑¢ÀÕ∫Ø ˝
+void MQTT_GPRS_SendData()
+{       
+    char str2[5]="\""; 
+    char str3[5]="\\22"; 
+    uint8_t  Pack_Num = 0;  
+	//ƒ¨»œ120∏ˆ¥”ª˙
+	if(MQTT_Resv_SensorNum == 0){MQTT_Resv_SensorNum = SensorNum;}
+	//º∆À„∞¸ ˝
+	if (MQTT_Resv_SensorNum >= 40)
+	{
+		/* code */	
+		Pack_Num = MQTT_Resv_SensorNum / PacksSensorNum;
+		if (MQTT_Resv_SensorNum % PacksSensorNum )
+		{
+			Pack_Num ++;
+		}
+		UART_Printf("Pack_Num is ---------------: %d\r\n" ,Pack_Num);
+	}
+	else if (MQTT_Resv_SensorNum < 40)
+	{
+		Pack_Num = 1; 
+		Pack_Num_Last = MQTT_Resv_SensorNum;
+	}
+    for (uint8_t i = 1; i <= Pack_Num; i++)
+    {	
+        memset(NB_SendDataBuff,0,sizeof(NB_SendDataBuff)); 
+        strcat(NB_SendDataBuff,"AT+MPUB=\"/WSN-LW/");
+        strcat(NB_SendDataBuff,Read_ID);
+        strcat(NB_SendDataBuff,"/event/Data\",0,0,\"");
+        //sprintf(NB_SendDataBuff,"%s\r\n",Creat_json_MQTT_SendData(MQTT_Publish_Type_SendData,1)); 
+        if (MQTT_Resv_SensorNum >= 40)
+        { 
+            strcat(NB_SendDataBuff,jsondata_change_toGPRS(Creat_json_MQTT_SendData(MQTT_Publish_Type_SendData,i),str2,str3));
+        }
+        else
+        {
+           strcat(NB_SendDataBuff,jsondata_change_toGPRS(Creat_json_MQTT_SendData(MQTT_Publish_Type_CountLess40,i),str2,str3));
+        } 
+        strcat(NB_SendDataBuff,"\"\r\n");  
+       // UART_Printf("TestData : %s \r\n",jsondata_change_toGPRS(Creat_json_MQTT_SendData(MQTT_Publish_Type_SendData,1),str2,str3));
+        Uart_SendStr(NB_SendDataBuff);
+        UART_Printf("@@ NB_SendDataBuff:%s\r\n",NB_SendDataBuff);  //µ˜ ‘
+    }
+        
+}
+//GPRSµƒMQTT ˝æ›∑¢ÀÕ∫Ø ˝
+void MQTT_GPRS_Heartbeat()
+{
+        char str2[5]="\""; 
+        char str3[5]="\\22"; 
+        memset(NB_SendDataBuff,0,sizeof(NB_SendDataBuff)); 
+        strcat(NB_SendDataBuff,"AT+MPUB=\"/WSN-LW/");
+        strcat(NB_SendDataBuff,Read_ID);
+        strcat(NB_SendDataBuff,"/event/Heartbeat\",0,0,\"");
+        //sprintf(NB_SendDataBuff,"%s\r\n",Creat_json_MQTT_SendData(MQTT_Publish_Type_SendData,1)); 
+        strcat(NB_SendDataBuff,jsondata_change_toGPRS(Creat_json_MQTT_SendData(MQTT_Publish_Type_HeartBeat,0),str2,str3));
+        strcat(NB_SendDataBuff,"\"\r\n");  
+       // UART_Printf("TestData : %s \r\n",jsondata_change_toGPRS(Creat_json_MQTT_SendData(MQTT_Publish_Type_SendData,1),str2,str3));
+        Uart_SendStr(NB_SendDataBuff);
+        UART_Printf("@@ NB_SendDataBuff:%s\r\n",NB_SendDataBuff);  //µ˜ ‘
 }
 
 void ATRec(void)
@@ -142,22 +236,67 @@ void ATRec(void)
         {
             ATCmds[ATRecCmdNum].ATStatus = SUCCESS_REC;  //…Ë÷√Œ™≥…π¶Ω” ’
         }
-        UART_Printf("@@Rev:%s\r\n",stUart.Buf);
-//        Usart2type.UsartRecFlag = 0;  //«Âø’Ω” ’±Í÷æŒª
-//        Usart2type.UsartRecLen = 0;   //«Âø’Ω” ’≥§∂»
-		
-//		clearUart();			//«Âø’¥Æø⁄–≈œ¢
+        UART_Printf("@@Rev:%s\r\n",stUart.Buf); 
     }
 }
-
+//MQTT∑¢ÀÕΩ” ‹ ˝æ›µƒ√¸¡Ó
+void MQTT_GPRS_SendRscvDataCMD()
+{
+        //∑¢ÀÕAT√¸¡Ó’˝≥£÷Æ∫ÛΩ¯––∂©‘ƒ
+        memset(NB_SendDataBuff,0,sizeof(NB_SendDataBuff)); 
+        strcat(NB_SendDataBuff,"AT+MQTTMSGGET\r\n");  
+        Uart_SendStr(NB_SendDataBuff);
+        UART_Printf("@@ NB_SendDataBuff:%s\r\n",NB_SendDataBuff);  //µ˜ ‘
+        MQTT_GPRS_ResvData();
+}
+//MQTTΩ” ‹ ˝æ›
+void MQTT_GPRS_ResvData()
+{ 
+    uint8_t Topic_Num[60]; 
+    uint8_t JsonData[200];
+    if(stUart.RxOK)  //¥Æø⁄ ’µΩ ˝æ›
+    {
+		stUart.RxOK = 0;
+		stUart.u8Count = 0;
+		stUart.u8Timer = 0x7F; 
+        UART_Printf("@@Rev:%s\r\n",stUart.Buf); 
+        //±È¿˙ ˝◊È
+        for (uint8_t i = 0; i < 180; i++)
+        { 
+            //Topic Ω¯––¥Ú”°
+            if (stUart.Buf[i] == '+' && stUart.Buf[i+1] == 'M' 
+                && stUart.Buf[i+2] == 'S' && stUart.Buf[i+3] == 'U' 
+                && stUart.Buf[i+4] == 'B' && stUart.Buf[i+5] == ':'
+                && stUart.Buf[i+6] == ' ' && stUart.Buf[i+7] == '/'
+                && stUart.Buf[i+8] == 'W' && stUart.Buf[i+9] == 'S'
+                )
+            {
+                UART_Printf("Catch!!!!!!!!!!!!!!!!!!!!!!!!\r\n"); 
+                for (uint8_t j = 0; j < 30; j++)
+                {
+                    Topic_Num[j] = stUart.Buf[j+(i+7)];
+                } 
+                //Topic Ω¯––¥Ú”°
+                UART_Printf("Topic : %s\r\n",Topic_Num); 
+            }   
+              //ªÒ»°json ˝æ›    
+            if (stUart.Buf[i] == '{' )
+            {
+                for (uint8_t k = 0; k < 100; k++)
+                {
+                    JsonData[k] = stUart.Buf[i+k];
+                } 
+                 //json ˝æ› Ω¯––¥Ú”°
+                UART_Printf("JsonData : %s\r\n",JsonData); 
+                Unpack_json_MQTT_ResvData(JsonData);
+            }
+        }  
+        clearUart();  
+    } 
+}
 
 void NB_POWER_ON(void)
-{
-//    HAL_GPIO_WritePin( NB_PWK_GPIO_Port, NB_PWK_Pin, GPIO_PIN_RESET);
-//    HAL_Delay(100);
-//    HAL_GPIO_WritePin( NB_PWK_GPIO_Port, NB_PWK_Pin, GPIO_PIN_SET);
-//    HAL_Delay(2500);
-//    HAL_GPIO_WritePin( NB_PWK_GPIO_Port, NB_PWK_Pin, GPIO_PIN_RESET);
+{ 
 	nrf_gpio_pin_set(PWRKEY);
 	delay_ms(500); 
 	nrf_gpio_pin_clear(PWRKEY);
@@ -171,10 +310,7 @@ void NB_WAKE_UP(void)
 }
 
 void NB_RESET(void)
-{
-//    HAL_GPIO_WritePin(NB_RST_GPIO_Port, NB_RST_Pin, GPIO_PIN_SET);
-//    HAL_Delay(2500);
-//    HAL_GPIO_WritePin(NB_RST_GPIO_Port, NB_RST_Pin, GPIO_PIN_RESET);
+{ 
 	UART_Printf("@@ NB_RESET...\r\n");
 	Uart_SendStr("AT+CFUN=1,1\r\n");
 	NB_POWER_ON();
@@ -193,9 +329,7 @@ void NB_Init(void)
 
 void COAPSendData(uint16_t Flag)
 {
-    ADC_val = Flag;
-//    NB_WAKE_UP();                      //¥”–›√ﬂ◊¥Ã¨œ¬ªΩ–—
-//    printf("@ wakeup NB ...\r\n");
+    ADC_val = Flag; 
     ATCurrentCmdNum = AT_CREG;
     ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum+1);        //œ¬“ªÃı÷∏¡Ó
     NB_TaskStatus = NB_SEND;
@@ -259,48 +393,14 @@ void NB_Task(void)
             return;
         }
     }
-}
-
+} 
 void Rec_WaitAT(void)
 {
     if(ATCmds[ATCurrentCmdNum].ATStatus == SUCCESS_REC) //≥…π¶ ˝æ›∞¸
     {
         switch(ATCurrentCmdNum)
         {
-////			case AT_I:
-////				if(IMEI_flag==0)  //ªπŒ¥ ∂±IMEI
-////				{
-////				 memset(IMEI_buf, 0, sizeof(IMEI_buf));     //≤È—Ø–≈∫≈÷µ
-////////			     find_string_flag= Find_string((char *)Usart2type.Usart2RecBuffer,"IMEI: ","\r\n",(char *)IMEI_buf); //»°≥ˆ–≈∫≈÷µ
-////				if(find_string_flag) IMEI_flag =1;
-////				}
-////				ATCurrentCmdNum += 1;
-////                ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum+1);     //√¸¡Óµ›Ω¯
-////               NB_TaskStatus = NB_SEND;
-////				break;
-////        case AT_ZCONTLED:                 //µ„µ∆ªÚ’ﬂπÿµ∆ÕÍ±œ
-////            if(my_sleep ==1 )             // πƒ‹PSMπ¶ƒ‹
-////            {
-////                ATCurrentCmdNum = (teATCmdNum)(ATCurrentCmdNum+1);
-////                ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum+1);
-////                NB_TaskStatus = NB_SEND;
-////            } else                       //Œ¥ πƒ‹PSMπ¶ƒ‹£®Ã¯π˝–›√ﬂ≈‰÷√£©
-////            {
-////                ATCurrentCmdNum = AT_CEREG;
-////                ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum+1);
-////                NB_TaskStatus = NB_SEND;
-////            }
-////            break;
-////        case AT_ZSLR:                         //–›√ﬂƒ£ Ω“—æ≠≈‰÷√
-////            ATCurrentCmdNum = AT_CEREG;       //ø™ º◊§Õ¯
-////            ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum +1);   //√¸¡Óµ›Ω¯
-////            NB_TaskStatus = NB_SEND;
-////            break;
-////        case AT_CPSMS_1:
-////            ATCurrentCmdNum = AT_ZRST;       //∏¥Œªƒ£◊È£®ø…ªª≥…”≤º˛∏¥Œª£©
-////            ATNextCmdNum = AT;               //¥”Õ∑ø™ º‘À––
-////            NB_TaskStatus = NB_SEND;
-////            break;
+ 
         case AT_CREG_1:
 //            printf("@@CEREG--SUCCESS...\r\n");
             ATCurrentCmdNum += 1;
@@ -320,41 +420,63 @@ void Rec_WaitAT(void)
             {
                 ATCurrentCmdNum  = AT_CSQ;
                 ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum+1);
-            } else // ≥…π¶»°≥ˆCSQ
+            } 
+            else // ≥…π¶»°≥ˆCSQ
             {
-////                if(Cat_Time.flag == 1)  //»Áπ˚Õ¯¬Á∂‘±ÌÕÍ≥…£¨≤ª‘Ÿ∂‘±Ì
-////                {
-////                    ATCurrentCmdNum += 2;
-////                    ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum+1);
-////                } 
-////				else 
-				{                //»Áπ˚ªπŒ¥∂‘±Ì£¨∑¢ÀÕ∂‘±Ì√¸¡Ó
+ 
+				{   //»Áπ˚ªπŒ¥∂‘±Ì£¨∑¢ÀÕ∂‘±Ì√¸¡Ó
                     ATCurrentCmdNum += 1;
                     ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum+1);
                 }
             }
             NB_TaskStatus = NB_SEND;
-            break;
-//		case AT_CIFSR:
-////            printf("@@CEREG--SUCCESS...\r\n");
-//            ATCurrentCmdNum += 1;
-//            ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum +1);   //√¸¡Óµ›Ω¯
-//            NB_TaskStatus = NB_SEND;
-//            break;
-        case AT_TCPSEND:
-            CurrentRty = ATCmds[ATCurrentCmdNum].RtyNum;   //≥…π¶“ª¥ŒæÕ∏≥÷µ
-            NB_reset_time =5;                              //∏¥Œª¥Œ ˝∏≥÷µ
-//            ATCurrentCmdNum += 1;
-			ATCurrentCmdNum = AT_CIPSTART;
-            ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum+1);     //√¸¡Óµ›Ω¯
+            break;  
+       case AT_MCONFIG:
+            
+            UART_Printf("\r\n …Ë÷√MQTT≤Œ ˝√‹¬Î’À∫≈ %d\r\n",ATCurrentCmdNum);
+            ATCurrentCmdNum += 1;
+            ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum +1);   //√¸¡Óµ›Ω¯
             NB_TaskStatus = NB_SEND;
+
             break;
-        case AT_TCPDEL:                                  //∂œø™COAP¡¨Ω”
-////            memset(CSQ_buffer,0x00,sizeof(CSQ_buffer));    //«Âø’–≈∫≈ ˝æ›buf
-////            work_flag =0;                                  //«Âø’∂® ±∆˜±Í ∂
-            NB_TaskStatus = NB_IDIE;                       //…Ë÷√Œ™ø’œ–Ã¨£®µ»¥˝NB–›√ﬂ£©
+
+       case AT_MIPSTART:
+            
+            UART_Printf("\r\n …Ë÷√¡¨Ω” ±µƒµÿ÷∑∫Õ∂Àø⁄∫≈  %d\r\n",ATCurrentCmdNum);
+            ATCurrentCmdNum += 1;
+            ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum +1);   //√¸¡Óµ›Ω¯
+            NB_TaskStatus = NB_SEND;
+
             break;
-        
+
+       case AT_MCONNECT:
+            
+            UART_Printf("\r\n ø™ ºΩ®¡¢MQTT¡¥Ω” %d\r\n",ATCurrentCmdNum);
+            ATCurrentCmdNum += 1;
+            ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum +1);   //√¸¡Óµ›Ω¯
+            NB_TaskStatus = NB_SEND;
+
+            break;  
+
+       case AT_MQTTMSGSET:
+            
+            UART_Printf("\r\n …Ë÷√MQTTµƒ…œ±®œ˚œ¢ƒ£ Ω %d\r\n",ATCurrentCmdNum);
+            ATCurrentCmdNum += 1;
+            ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum +1);   //√¸¡Óµ›Ω¯
+            NB_TaskStatus = NB_SEND;
+
+            break;   
+       case AT_MPUB:
+            
+            UART_Printf("\r\n MQTT…œ±®œ˚œ¢PUB %d\r\n",ATCurrentCmdNum);
+            //»Áπ˚Ω¯»Î¥À¥¶Àµ√˜GPRS≥ı ºªØÕÍ≥…°£
+            GPRS_InitOver_Flag = 1; 
+            ATCurrentCmdNum  = AT_MQTTMSGSET;
+            ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum +1);   //√¸¡Óµ›Ω¯
+            NB_TaskStatus = NB_SEND;
+
+            break;  
+
         default:
             ATCurrentCmdNum = (teATCmdNum)(ATCurrentCmdNum+1);
             ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum+1);
@@ -363,23 +485,17 @@ void Rec_WaitAT(void)
         }
     }
     else if(CompareTime(&TimeNB))           //ªπ√ª ’µΩ‘§∆⁄ ˝æ›  ≤¢«“≥¨ ±
-    {
-//        printf("@@REV--TimeOut:%s\r\n",stUart.Buf);
+    { 
         switch(ATCurrentCmdNum)  //ºÏÀ˜≥¨ ±≥ˆ¥Ìµƒ√¸¡Ó
         {
-////        case AT_ZSLR:
-////            ATCurrentCmdNum  = AT_ZSLR_1;
-////            ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum+1);
-////            NB_TaskStatus = NB_SEND;
-////            break;
+ 
         default:
             break;
         }
         ATCmds[ATCurrentCmdNum].ATStatus = TIME_OUT;
         if(CurrentRty > 0)  //÷ÿ∑¢
         {
-            CurrentRty--;
-//            printf("@@ now:%d,trytime:%d\r\n",ATCurrentCmdNum,CurrentRty);
+            CurrentRty--; 
             ATNextCmdNum = ATCurrentCmdNum;  //œ¬“ªÃı ªπ «µ±«∞√¸¡Ó   µœ÷÷ÿ∑¢–ßπ˚
             NB_TaskStatus = NB_SEND;
         }

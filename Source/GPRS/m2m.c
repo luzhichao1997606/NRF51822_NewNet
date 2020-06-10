@@ -1,10 +1,11 @@
 #include <string.h>
-//#include <stdlib.h>
 #include "m2m.h"
+#include "common.h"
 
-#define M2M_TASK_NUM  12
+#define M2M_TASK_NUM  15
 
 void m2m_echoclose(void);
+void m2m_reset(void);
 typedef en_M2MState (*m2m_task_function)(void);
 gprs_info_t m_gprs_info;
 
@@ -12,6 +13,7 @@ const static m2m_task_function m2m_task_list[]=
 {
 	m2m_gprscheck,
 	m2m_findsim,
+	m2m_GetIMEI,
 	m2m_GetIMSI,
 	m2m_CregSetForLocation,
 	m2m_findcreg,
@@ -19,34 +21,31 @@ const static m2m_task_function m2m_task_list[]=
 	m2m_getcsq,
 	m2m_findcgatt,
 	m2m_closegprs,
-	m2m_setapn,
-	m2m_actgprs,
-	m2m_getlocalip,
-//	m2m_tcpconnect,
+	m2m_Mconfig,	// Mqtt 配置
+	m2m_Mipstart,	// Mqtt IP地址或域名地址，以及端口号
+	m2m_Mconnect,	// 建立mqtt会话
+	m2m_Mmsgset,	// 消息上报模式:缓存模式,用 AT+MQTTMSGGET 来读消息
+	m2m_Msub,		// 订阅	
+	// m2m_Mpub,		// 发送消息
+
+	// m2m_setapn,
+	// m2m_actgprs,
+	// m2m_getlocalip,
+	// m2m_tcpconnect,
 };
 
-//void tmrDelay(uint16_t u16Delay) // 通过定时器实现的精确ms延时
-//{
-//	uint16_t i,delayTicks = 2100;
-//	while(delayTicks > 0)
-//	{
-//		for(i=0; i<u16Delay;i++);
-//		delayTicks--;
-//		nrf_drv_wdt_feed();
-//	}
-//}
 /****************************************************************************
 *func: send M2M command
 *para: the command that will be execute
 ****************************************************************************/
-static void Send_AT_Command(char* AT_Command)
+static void Send_AT_Command(const char* AT_Command)
 {
 	
 	clearUart();	// 清空串口信息
 	
-	Uart_SendStr((const uint8_t *)AT_Command);
-	Uart_SendStr((const uint8_t *)"\r\n");
-	delay_ms(100);
+	Uart_SendStr((uint8 const *)AT_Command);
+	Uart_SendStr("\r\n");
+	tmrDelay(100);
 	
 	#if AT_Debug
 	//		if(m_mode == WORK_MODE)
@@ -88,7 +87,7 @@ en_M2MState Check_Response(const char * Response, unsigned int Response_Time_Out
 			#endif
 			return M2M_CMD_SUCCESS;
 		}
-		delay_ms(100);
+		tmrDelay(100);
 	}
 	#if AT_Debug
 	if(macPIB.u8NodeType != TEST_MODE)
@@ -108,7 +107,7 @@ en_M2MState Check_Response(const char * Response, unsigned int Response_Time_Out
 // Response:等待的应答内容
 // Response_Time_Out:等待应答的超时时间，单位100ms
 // ReSendCount:等到应答超时之后，重发AT命令的次数
-en_M2MState SendAT_CheckResponse(char* AT_Command, const char * Response, unsigned int Response_Time_Out, uint8_t ReSendCount)
+en_M2MState SendAT_CheckResponse(const char* AT_Command, const char * Response, unsigned int Response_Time_Out, uint8 ReSendCount)
 {
 	unsigned int temp;
 	
@@ -122,7 +121,7 @@ en_M2MState SendAT_CheckResponse(char* AT_Command, const char * Response, unsign
 			{
 				return M2M_CMD_SUCCESS;
 			}
-			delay_ms(100);
+			tmrDelay(100);
 		}
 		
 	}
@@ -136,19 +135,20 @@ en_M2MState SendAT_CheckResponse(char* AT_Command, const char * Response, unsign
 **************************************************************************/
 void  m2m_pwron(unsigned char NewState)
 {
-//	if(NewState == ENABLE)
-//	{
-//		//USART1TxRxPortA_Status(ENABLE);	// 使能串口PA映射，关闭PC端口上拉	
-//		//Uart_SendStr("POWER UP\r\n");
-//		GPRSPowerOn(); // GPRS上电
-//		//USART1TxRxPortA_Status(DISABLE);	// 关闭串口PA映射，使能PC端口上拉	
-//	}
-//	else
-//	{
-//		//USART1TxRxPortA_Status(ENABLE);	// 使能串口PA映射，关闭PC端口上拉	
-//		//Uart_SendStr("POWER DOWN\r\n");
-//		GPRSPowerOff(); // GPRS断电
-//	}
+	if(NewState == ENABLE)
+	{ 
+		nrf_gpio_pin_set(PWRKEY);
+		delay_ms(500); 
+		nrf_gpio_pin_clear(PWRKEY);
+		delay_ms(5000); 
+	}
+	else
+	{
+//		USART1TxRxPortA_Status(ENABLE);	// 使能串口PA映射，关闭PC端口上拉	
+//		Uart_SendStr("POWER DOWN\r\n");
+		nrf_gpio_pin_set(PWRKEY);
+		delay_ms(500); 
+	}
 }
 
 // 检测GPRS模块是否开机
@@ -174,7 +174,7 @@ en_M2MState m2m_gprscheck(void)
 // 检测SIM卡是否存在
 en_M2MState m2m_findsim(void)
 {
-	return SendAT_CheckResponse("AT+CPIN?", "READY", 10, 10);	// 检查SIM卡是否准备好
+	return SendAT_CheckResponse("AT+CPIN?", "READY", 10, 10);
 }
 /*
 *fun : set creg for location information
@@ -197,10 +197,10 @@ en_M2MState m2m_findcreg(void)
 	char *ptr;
 	
   retry:
-	Send_AT_Command("AT+CREG?");	//检查是否注册到GSM
+	Send_AT_Command("AT+CREG?");
 	if(Check_Response("OK",15) != M2M_CMD_SUCCESS)
 	{
-		delay_ms(1000);
+		tmrDelay(1000);
 		retry2++;
 		if(retry2 >= 5) 
 			return M2M_CMD_ERROR;
@@ -210,7 +210,7 @@ en_M2MState m2m_findcreg(void)
 	else
 	{
 		retry2= 0;
-		delay_ms(1000);
+		tmrDelay(1000);
 		ptr = strchr((char*)stUart.Buf,',');
 		if(ptr)
 		{
@@ -219,11 +219,11 @@ en_M2MState m2m_findcreg(void)
 			{
 				ptr = strchr((const char*)ptr,'"');  		//得到基站位置信息
 				ptr++;
-				memcpy(m_gprs_info.lac,ptr,4);
+				comMEMCPY((uint8 *)m_gprs_info.lac,(uint8 const *)ptr,4);
 				ptr = strchr((const char*)ptr,',');
 				ptr++;
 				ptr++;
-				memcpy(m_gprs_info.cid,ptr,4);
+				comMEMCPY((uint8 *)m_gprs_info.cid,(uint8 const *)ptr,4);
 				return M2M_CMD_SUCCESS;
 			}
 		}
@@ -242,7 +242,7 @@ en_M2MState m2m_Get_NetInfo(void)
 	char netinfo[6];
 	int i;
 	SendAT_CheckResponse("AT+COPS=3,2", "OK", 20, 10);
-	SendAT_CheckResponse("AT+COPS?", "OK", 20, 10);	//查询运营商
+	SendAT_CheckResponse("AT+COPS?", "OK", 20, 10);
 //  res:
 //	Send_AT_Command("AT+COPS=3,2\r");
 //	if(Check_Response("OK", 20) != M2M_CMD_SUCCESS)
@@ -263,10 +263,10 @@ en_M2MState m2m_Get_NetInfo(void)
 //		else
 //			goto cops_retry;
 //	}
-	memset(m_gprs_info.mcc,0,sizeof(m_gprs_info.mcc));
-	memset(m_gprs_info.mic,0,sizeof(m_gprs_info.mic));
-	memset(netinfo,0,sizeof(netinfo));
-	p = strchr((const char *)stUart.Buf,'\"');
+	comMEMSET((uint8 *)m_gprs_info.mcc,0,sizeof(m_gprs_info.mcc));
+	comMEMSET((uint8 *)m_gprs_info.mic,0,sizeof(m_gprs_info.mic));
+	comMEMSET((uint8 *)netinfo,0,sizeof(netinfo));
+	p = strchr((char const *)stUart.Buf,'\"');
 	if(p == NULL)
 		return M2M_CMD_ERROR;
 	p++;
@@ -275,8 +275,8 @@ en_M2MState m2m_Get_NetInfo(void)
 		netinfo[i] = *p;
 		p++;
 	}
-	memcpy(m_gprs_info.mcc,netinfo,3);
-	memcpy(m_gprs_info.mic,(char*)(netinfo+3),strlen(netinfo)-3);
+	comMEMCPY((uint8 *)m_gprs_info.mcc,(uint8 const *)netinfo,3);
+	comMEMCPY((uint8 *)m_gprs_info.mic,(uint8 const *)(netinfo+3),strlen(netinfo)-3);
 	return  M2M_CMD_SUCCESS;
 }
 
@@ -288,12 +288,12 @@ en_M2MState m2m_Get_NetInfo(void)
 en_M2MState m2m_getcsq(void)
 {
 	char *p;
-	Send_AT_Command("AT+CSQ");			  //检查GSM信号质量
+	Send_AT_Command("AT+CSQ");				//配置 PDP context
 	if( Check_Response("OK",20) == M2M_CMD_SUCCESS)
 	{
-		p = strchr((const char *)stUart.Buf,':');
+		p = strstr((char const *)stUart.Buf,": ");
 		p++;
-		memset(m_gprs_info.csq,0,sizeof(m_gprs_info.csq));
+		comMEMSET((uint8 *)m_gprs_info.csq,0,sizeof(m_gprs_info.csq));
 		for(int i = 0;*p != ',';p++,i++)
 			m_gprs_info.csq[i] = *p;
 		return M2M_CMD_SUCCESS;
@@ -306,21 +306,34 @@ en_M2MState m2m_getcsq(void)
 */
 en_M2MState m2m_GetIMEI(void)
 {
-	int i = 0;
-	int j = 0;
-	Send_AT_Command("AT+GSN");
-	if(Check_Response("OK", 10) != M2M_CMD_SUCCESS)
-		return M2M_CMD_ERROR;
+	char  *cstart,i =0;	
+	SendAT_CheckResponse("AT+CGSN", "OK", 10, 10);
 	
-	memset(m_gprs_info.imei, 0, sizeof(m_gprs_info.imei));
-	for(; i < strlen((const char *)stUart.Buf); i++)
+	comMEMSET((uint8 *)m_gprs_info.imei,0,sizeof(m_gprs_info.imei));
+	cstart = strchr((char const *)stUart.Buf,'\n');
+	if(cstart)
 	{
-		if((stUart.Buf[i] >= '0') &&(stUart.Buf[i] <= '9'))
-		{
-			m_gprs_info.imei[j++] = stUart.Buf[i];
-		}
+		++cstart;
+		while((*cstart >= '0') &&(*cstart <='9'))
+			m_gprs_info.imei[i++] = *cstart++;
 	}
-	return M2M_CMD_SUCCESS;
+	else
+		return   M2M_CMD_ERROR;
+	return  M2M_CMD_SUCCESS;
+	
+//	Send_AT_Command("AT+CGSN");
+//	if(Check_Response("OK", 10) != M2M_CMD_SUCCESS)
+//		return M2M_CMD_ERROR;
+//	
+//	comMEMSET((uint8 *)m_gprs_info.imei, 0, sizeof(m_gprs_info.imei));
+//	for(; i < strlen((char const *)stUart.Buf); i++)
+//	{
+//		if((stUart.Buf[i] >= '0') &&(stUart.Buf[i] <= '9'))
+//		{
+//			m_gprs_info.imei[j++] = stUart.Buf[i];
+//		}
+//	}
+//	return M2M_CMD_SUCCESS;
 }
 /*
 @bief:得到SIM卡的IMSI
@@ -340,8 +353,8 @@ en_M2MState m2m_GetIMSI(void)
 //		else
 //			goto x;
 //	}
-	memset(m_gprs_info.imsi,0,sizeof(m_gprs_info.imsi));
-	cstart = strchr((const char *)stUart.Buf,'\n');
+	comMEMSET((uint8 *)m_gprs_info.imsi,0,sizeof(m_gprs_info.imsi));
+	cstart = strchr((char const *)stUart.Buf,'\n');
 	if(cstart)
 	{
 		++cstart;
@@ -362,7 +375,7 @@ en_M2MState m2m_GetIMSI(void)
 *********************************************************/
 en_M2MState m2m_findcgatt(void)
 {
-	return SendAT_CheckResponse("AT+CGATT?", "+CGATT: 1", 20, 20);	//查询是否连接到GPRS
+	return SendAT_CheckResponse("AT+CGATT?", "+CGATT: 1", 20, 20);
 }
 
 /*********************************************************
@@ -387,21 +400,21 @@ en_M2MState  m2m_setapn(void)
 ***********************************************************/
 en_M2MState  m2m_actgprs(void)
 {
-	return SendAT_CheckResponse("AT+CIICR", "OK", 200, 1);	//激活GPRS连接
+	return SendAT_CheckResponse("AT+CIICR", "OK", 200, 1);
 	
 }
 
 // 查询分配的IP地址
 en_M2MState  m2m_getlocalip(void)
 {
-	return SendAT_CheckResponse("AT+CIFSR", ".", 10, 1);	// 获取本机地址
+	return SendAT_CheckResponse("AT+CIFSR", ".", 10, 1);
 }
 /**********************************************************
 *shut gprs pdp
 ***********************************************************/
 en_M2MState m2m_closegprs(void)
 {
-	return SendAT_CheckResponse("AT+CIPSHUT", "OK", 100, 5);	//关闭GPRS(PDP上下文去激活)
+	return SendAT_CheckResponse("AT+CIPSHUT", "OK", 200, 1);
 }
 
 /***********************************************************
@@ -409,10 +422,10 @@ en_M2MState m2m_closegprs(void)
 ************************************************************/
 en_M2MState m2m_tcpconnect(void)
 {
-	return SendAT_CheckResponse("AT+CIPSTART=\"TCP\",\"gateway.cortp.com\",\"7611\"",
+	return SendAT_CheckResponse("AT+CIPSTART=\"TCP\",\"www.cortp.com\",\"7211\"",
 								"CONNECT OK",
-								100,
-								5);	//建立TCP连接
+								300,
+								1);
 }
 /************************************************************
 *get tcp connection state
@@ -422,35 +435,296 @@ en_M2MState m2m_getconstate(void)
 	return SendAT_CheckResponse("AT+CIPSTATUS", "STATE: CONNECT OK", 10, 1);// 查询TCP连接状态
 }
 
-////st_AES stAES; 
-////static void AES_Send(uint8_t *pbuf,uint8_t u8Len)
-////{
-////	if((stAES.u8Count + u8Len) >= 40)
-////		return;
-////	
-////	comMEMCPY(&stAES.Buf[stAES.u8Count],pbuf,u8Len);
-////	stAES.u8Count += u8Len;
-////	while(stAES.u8Count >= 16)
-////	{
-////		/*第一层加密*/
-////		AES_init_ctx(&m_aes, m_randkey);
-////		AES_ECB_encrypt(&m_aes,stAES.Buf);  
-////		
-////		/*第二层加密*/
-////		AES_init_ctx(&m_aes, m_key);
-////		AES_ECB_encrypt(&m_aes,stAES.Buf);
-////		
-////		// 发送加密后的数据 16字节
-////		Uart_SendData(stAES.Buf,16);
-////		
-////		// 发送后清除已加密发送数据
-////		stAES.u8Count -= 16;
-////		comMEMCPY(stAES.Buf,(const uint8_t *)&stAES.Buf[16],stAES.u8Count);
-////		
-////	}
-////	
-////	WATCHDOG_FEED();
-////}
+/************************************************************
+*mqtt config
+*AT+MCONFIG=<clientid>,XXXX,$$$$
+* 注意：
+* XXXX 是用户名
+* $$$$ 是密码
+* 请开发者写真实的<clientid>、用户名和密码，不要
+* 照抄，这三个参数加不加双引号都可以。如果用户名和
+* 密码为空，则可以写成：
+* AT+MCONFIG=<clientid>,””,””
+*************************************************************/
+en_M2MState m2m_Mconfig(void)
+{
+	char ATcmd[60] = {0};
+	sprintf(ATcmd,"AT+MCONFIG=\"");
+	strcat(ATcmd,m_gprs_info.imei);
+	strcat(ATcmd,"\",\"20050001\",\"xj0ccb17\"");
+	return SendAT_CheckResponse(ATcmd, "OK", 10, 1);// 查询TCP连接状态
+}
+
+/************************************************************
+*mqtt ip port
+* AT+MIPSTART=”ip 或域名”,”port”	
+* 这里，请填上用户自己的mqtt服务器的IP地址或域名
+* 地址，以及端口号
+*************************************************************/
+en_M2MState m2m_Mipstart(void)
+{
+	// return SendAT_CheckResponse("AT+MIPSTART=\"mqtt.yun-ran.com\",\"1883\"",
+	// 							"CONNECT",
+	// 							100,
+	// 							2);
+	return SendAT_CheckResponse("AT+MIPSTART=\"www.touchzhili.com\",\"6379\"",
+								"CONNECT",
+								100,
+								2);
+								
+}
+
+/************************************************************
+*mqtt connect
+* 建立mqtt会话
+* 注：在MIPSTART 返回CONNECT OK 后才能发
+* MCONNECT 命令，而且要立即发，否则会被服务器踢掉。
+* 收到CONNACK OK后才能发布消息
+*************************************************************/
+en_M2MState m2m_Mconnect(void)
+{
+	return SendAT_CheckResponse("AT+MCONNECT=1,60",
+								"CONNACK OK",
+								300,
+								1);
+}
+
+/************************************************************
+*mqtt MQTT MSG SET
+* 消息上报模式
+* 0:主动上报到串口。有新订阅消息时，上报的 URC 为：
+* +MSUB：<topic>,<len>,<message>
+* 1:缓存模式。有新订阅消息时，上报的 URC 为：
+* +MSUB：<store_addr>
+* 然后用 AT+MQTTMSGGET 来读消息
+*************************************************************/
+en_M2MState	m2m_Mmsgset(void)	// 消息上报模式:缓存模式,用 AT+MQTTMSGGET 来读消息
+{
+	return SendAT_CheckResponse("AT+MQTTMSGSET=1", "OK", 10, 1);// 消息上报模式:0主动上报到串口,1缓存模式
+}
+
+//static char *mystrstr(char *srcstr, int strclen, char *substr, int sublen)
+//{
+//    char *p = 0;   
+//    for (p = srcstr; p <= srcstr + strclen - sublen; p++)
+//    {
+//        if (memcmp (p, substr, sublen) == 0)
+//            return (p);
+//    }   
+//    return (0);
+//}
+
+/************************************************************
+*mqtt MQTT MSG GET
+* 打印收到的所有的订阅消息
+* 0:主动上报到串口。有新订阅消息时，上报的 URC 为：
+* +MSUB：<topic>,<len>,<message>
+* 1:缓存模式。有新订阅消息时，上报的 URC 为：
+* +MSUB：<store_addr>
+* 然后用 AT+MQTTMSGGET 来读消息
+*************************************************************/
+char *ptr;
+char *subptr;
+en_M2MState	m2m_Mmsgget(void)  // 查询缓存中的主题订阅消息
+{
+	uint8 stbuf[10]={0};
+	uint8 i = 0;
+	//uint8_t retry_cnt = 0;
+	uint8_t retry2 = 0;
+	en_M2MState status = M2M_CMD_ERROR;
+	
+
+GetMsg:
+  	tmrDelay(1000);
+	Send_AT_Command("AT+MQTTMSGGET");				//配置 PDP context
+	
+	if( Check_Response("OK",20) == M2M_CMD_SUCCESS)
+	{
+		subptr = strstr((const char *)(stUart.Buf), "+MSUB:");
+//		subptr = mystrstr((char *)stUart.Buf,300,"+MSUB:",strlen("+MSUB:")-1);
+		if(subptr != NULL)
+		{
+			if(strstr(subptr, "/service/AlarmEnable") != NULL)
+			{
+				ptr = strstr((const char *)subptr,"byte,");
+				subptr = ptr;
+				if(ptr != NULL)
+				{
+					ptr = strstr((const char *)subptr, "\"AlarmEnable\":");
+					if(ptr != NULL)
+					{
+//						p++;
+						ptr = ptr + strlen("\"AlarmEnable\":");
+						// AlarmEnable = *p;
+						if(*ptr == '0')	// 撤防命令
+						{
+							if(GetKGState() != 0)	// 读取限位开关（井盖）状态，只有当井盖打开状态才能开锁
+							{
+								LockOpen();
+								macPIB.u16LockOpenTime = macPIB.u16LockOpenSet;	// 电子锁持续打开60s
+							}
+							
+						}
+						else
+						{
+							LockClose();
+							macPIB.u16LockOpenTime = 0;	// 电子锁持续打开时间
+						}
+						
+					}
+					status = M2M_CMD_SUCCESS;
+				}
+			}
+			if(strstr(subptr, "/service/Config") != NULL)
+			{
+				ptr = strstr((char const *)subptr,"byte,");
+				subptr = ptr;
+				if(ptr != NULL)
+				{
+					ptr = strstr((char const *)subptr, "\"HeartPeriod\":");
+					if(ptr != NULL)
+					{
+					
+//						ptr++;
+						ptr = ptr + strlen("\"HeartPeriod\":");
+						i = 0;
+						while(*ptr != ',')
+						{
+							stbuf[i++] = *ptr++;
+						}
+						// HeartPeriod = *p;
+						macPIB.u8HeartPeriod = comAtoi(stbuf);
+					}
+					ptr = strstr((char const *)subptr, "\"TempMax\":");
+					if(ptr != NULL)
+					{
+//						ptr++;
+						ptr = ptr + strlen("\"TempMax\":");
+						// TempMax = *p;
+						i = 0;
+						while(*ptr != ',')
+						{
+							stbuf[i++] = *ptr++;
+						}
+						macPIB.u8TempMax = comAtoi(stbuf);
+					}
+					ptr = strstr((char const *)subptr, "\"OpenTime\":");
+					if(ptr != NULL)
+					{
+//						ptr++;
+						ptr = ptr + strlen("\"OpenTime\":");
+						// TempMax = *p;
+						i = 0;
+						while(*ptr != '}')
+						{
+							stbuf[i++] = *ptr++;
+						}
+						macPIB.u16LockOpenSet = comAtoi(stbuf);
+					}
+					status = M2M_CMD_SUCCESS;
+				}
+			}
+			if(status == M2M_CMD_SUCCESS)
+				return M2M_CMD_SUCCESS;	
+		}
+		retry2= 0;
+		
+//		retry_cnt++;
+//		if(retry_cnt>=5)
+			return M2M_CMD_ERROR;
+		goto GetMsg;
+	}
+	else
+	{
+//		tmrDelay(1000);
+		retry2++;
+		if(retry2 >= 5) 
+			return M2M_CMD_ERROR;
+		else
+			goto GetMsg;
+	}
+}
+/************************************************************
+*mqtt Subscribe
+* mqtt订阅主题
+*************************************************************/
+en_M2MState m2m_Msub(void)
+{
+
+
+	// char ATcmd[60] = {0};
+	// sprintf(ATcmd,"AT+MSUB=\"/WSN_BJ09/");
+	// strcat(ATcmd,punStoreInfo->id);
+	// //+ MQTT通配符
+	// strcat(ATcmd,"/service/+\",0");
+	// return SendAT_CheckResponse(ATcmd,//"AT+MSUB=\"/WSN_BJ09/12346666/service/+\",0",
+	// 							"SUBACK",
+	// 							10,
+	// 							1);
+	unsigned char rtstatus=M2M_CMD_ERROR;
+	//主题Config
+	char ATcmd[60] = {0};
+	sprintf(ATcmd,"AT+MSUB=\"/WSN_BJ09/");
+	strcat(ATcmd,punStoreInfo->id);
+	//+ MQTT通配符
+	strcat(ATcmd,"/service/Config\",0");
+	rtstatus= SendAT_CheckResponse(ATcmd,//"AT+MSUB=\"/WSN_BJ09/12346666/service/+\",0",
+								"SUBACK",
+								10,
+								1);
+  //主题AlarmEnable
+	sprintf(ATcmd,"AT+MSUB=\"/WSN_BJ09/");
+	strcat(ATcmd,punStoreInfo->id);
+	//+ MQTT通配符
+	strcat(ATcmd,"/service/AlarmEnable\",0");
+	rtstatus= SendAT_CheckResponse(ATcmd,//"AT+MSUB=\"/WSN_BJ09/12346666/service/+\",0",
+								"SUBACK",
+								10,
+								1);
+	return rtstatus;
+}
+
+/************************************************************
+*mqtt Publish
+* mqtt发布主题
+*************************************************************/
+en_M2MState m2m_Mpub(const char *msg)
+{
+	return SendAT_CheckResponse(msg,//"AT+MPUB=\"/WSN_BJ/12346666/event/AlarmReport\",0,0,\"safafaf\"",
+								"OK",
+								10,
+								1);
+}
+
+//__no_init st_AES stAES; 
+//static void AES_Send(uint8 *pbuf,uint8 u8Len)
+//{
+//	if((stAES.u8Count + u8Len) >= 40)
+//		return;
+//	
+//	comMEMCPY(&stAES.Buf[stAES.u8Count],pbuf,u8Len);
+//	stAES.u8Count += u8Len;
+//	while(stAES.u8Count >= 16)
+//	{
+//		/*第一层加密*/
+//		AES_init_ctx(&m_aes, m_randkey);
+//		AES_ECB_encrypt(&m_aes,stAES.Buf);  
+//		
+//		/*第二层加密*/
+//		AES_init_ctx(&m_aes, m_key);
+//		AES_ECB_encrypt(&m_aes,stAES.Buf);
+//		
+//		// 发送加密后的数据 16字节
+//		Uart_SendData(stAES.Buf,16);
+//		
+//		// 发送后清除已加密发送数据
+//		stAES.u8Count -= 16;
+//		comMEMCPY(stAES.Buf,(const uint8 *)&stAES.Buf[16],stAES.u8Count);
+//		
+//	}
+//	
+//	WATCHDOG_FEED();
+//}
 
 /***********************************************************
 * Function name:       MC20_TCP_Send
@@ -459,228 +733,16 @@ en_M2MState m2m_getconstate(void)
 * output parameters:
 * Returned value:      无
 *************************************************************/
-extern char RF_ResetNum;
-extern uint8_t SensorWakeUpFlag;
-extern uint8_t Sendnum;
+//extern char RF_ResetNum;
+//extern uint8 SensorWakeUpFlag;
+//extern uint8 Sendnum;
+//extern uint8 u8SensorState;  // 触发中断后立即保存干簧管的状态，用于延时去抖
 en_M2MState m2m_TCP_Send(void)
 {
-	uint8_t  tmpbuf[22],i=0;
-	uint16_t u16len;
-	uint8_t  u8addlen;
+	uint8  tmpbuf[22],i;
+	uint16 u16len;
+	uint8  u8addlen;
 	
-	uint8_t tag_cnt    = 0;
-	DOUBLE_LINK_NODE *pNode;
-	uint32_t cnt       = 0;
-	
-	clearUart();	// 清空串口信息
-	
-	tag_cnt = count_number_in_double_link(&RADIO_DATA_LIST_HEAD);
-	if(tag_cnt >= 70) 
-		tag_cnt = 70;
-	u16len = (62 + tag_cnt*18);
-	
-	tmpbuf[0] = u16len/1000 + 0x30;
-	tmpbuf[1] = u16len%1000/100 + 0x30;
-	tmpbuf[2] = u16len%100/10 + 0x30;
-	tmpbuf[3] = u16len%10 + 0x30;
-	
-	Uart_SendStr((const uint8_t *)"AT+CIPSEND=");	//进入发送状态
-	Uart_SendData(tmpbuf,4);
-	Uart_SendStr((const uint8_t *)"\r\n");
-	
-	if(Check_Response(">",10) != M2M_CMD_SUCCESS)
-		return M2M_CMD_ERROR;	
-	
-	if(tag_cnt != 0) 
-		Uart_SendStr((const uint8_t *)"$R,P,D,");
-	else
-		Uart_SendStr((const uint8_t *)"$R,P,H,");
-	
-	Uart_SendStr((const uint8_t *)m_gprs_info.mcc);
-	Uart_SendStr((const uint8_t *)",");
-	Uart_SendStr((const uint8_t *)m_gprs_info.mic);
-	Uart_SendStr((const uint8_t *)",");
-	Uart_SendStr((const uint8_t *)m_gprs_info.lac);	// m_gprs_info.lac
-	Uart_SendStr((const uint8_t *)",");
-	Uart_SendStr((const uint8_t *)m_gprs_info.cid);	// m_gprs_info.cid
-	Uart_SendStr((const uint8_t *)",0,0,");
-	Uart_SendStr((const uint8_t *)m_gprs_info.imsi);
-	Uart_SendStr((const uint8_t *)",");
-	Uart_SendData((const uint8_t *)Read_ID,16);
-	
-//	Uart_SendStr("$R,I,D,460,00,1806,3201,0,0,460040883305431,990140123456700301000\r\n");
-	DISABLE_GLOBAL_INTERRUPT();
-	pNode = (&RADIO_DATA_LIST_HEAD)->next;
-	while(i++ < tag_cnt)
-	{	
-		hex2strid((char *)tmpbuf,pNode->data,(NET_RADIO_PACKET_LEN-2)<<1);
-		cnt = (NET_RADIO_PACKET_LEN-2)<<1;
-		
-		if(i == 1)
-			Uart_SendStr((const uint8_t *)",");
-		else
-			Uart_SendStr((const uint8_t *)"#");
-		if(pNode->data[6] == 0)
-		{
-			memcpy(&tmpbuf[cnt],"00",2);
-			cnt += 2;
-		}
-		else
-		{
-			memcpy(&tmpbuf[cnt],"10",2);
-			cnt += 2;
-		}
-		tmpbuf[cnt++] = pNode->data[7]/100 + 0x30;
-		tmpbuf[cnt++] = pNode->data[7]%100/10 + 0x30;
-		tmpbuf[cnt++] = pNode->data[7]%10 + 0x30;
-		
-		list_del(pNode);
-		pNode = (&RADIO_DATA_LIST_HEAD)->next;
-		
-		Uart_SendData(tmpbuf,17);
-	}
-	ENABLE_GLOBAL_INTERRUPT();
-	Uart_SendData((const uint8_t *)"\r\n",2);
-////	//comMEMSET(cmd_buf,0,sizeof(cmd_buf));
-////	// 处理数据长度字符
-////	if(u8TagNum > TAG_NUM_MAX)
-////		u8TagNum = 0; 
-////	if(Sendnum == 1)
-////	{
-////		u16len = (67 + u8TagNum*22);
-////	}
-////	else
-////	{
-////		u16len = (67 + (u8TagNum-50)*22);
-////	}
-//////	//	u16len = (84 + u8TagNum*22);
-//////	u16len = (67 + u8TagNum*22);
-////	if(u16len%16 != 0)
-////		u8addlen = (16-u16len%16);
-////	else
-////		u8addlen = 0;
-////	u16len += u8addlen;	// 补全加密数据为16的整数倍
-////	u16len += 16;	// 发送密钥
-////	tmpbuf[0] = u16len/1000 + 0x30;
-////	tmpbuf[1] = u16len%1000/100 + 0x30;
-////	tmpbuf[2] = u16len%100/10 + 0x30;
-////	tmpbuf[3] = u16len%10 + 0x30;
-////	
-////	clearUart();	// 清空串口信息
-////	
-////	Uart_SendStr("AT+CIPSEND=");
-////	Uart_SendData(tmpbuf,4);
-////	Uart_SendStr("\r\n");
-////	if(Check_Response(">",10) != M2M_CMD_SUCCESS)
-////		return M2M_CMD_ERROR;	
-////	
-////	
-////	/*动态密钥生产*/
-////	for(i =0; i < sizeof(m_randkey); i++)
-////	{
-////		m_randkey[i] = comRand(0xFF);
-////	}
-////	
-////	stAES.u8Count = 0;
-////	if(macPIB.u8PanDianFlag == 1)	// 发送盘点数据包
-////	{
-////		//		Uart_SendStr("$R,I,V,460,00,1806,3201,30.751163,120.647502,460040883305431,990140123456700501000");
-////		//		Uart_SendStr("$R,I,V,");
-////		AES_Send("$R,I,V,",strlen("$R,I,V,"));
-////		
-////		//		sprintf(cur_point,"$R,I,V,%s,%s,%s,%s,%s,%s,%s,",m_gprs_info.mcc,m_gprs_info.mic,m_gprs_info.lac,m_gprs_info.cid,"0","0",m_gprs_info.imsi);
-////	}
-////	else
-////	{
-////		//		Uart_SendStr("$R,I,D,460,00,1806,3201,30.751163,120.647502,460040883305431,990140123456700501000");
-////		//		Uart_SendStr("$R,I,D,");
-////		AES_Send("$R,I,D,",strlen("$R,I,D,"));
-////	}
-////	AES_Send(m_gprs_info.mcc,strlen(m_gprs_info.mcc));
-////	AES_Send(",",1);
-////	AES_Send(m_gprs_info.mic,strlen(m_gprs_info.mic));
-////	AES_Send(",",1);
-////	AES_Send(m_gprs_info.lac,strlen(m_gprs_info.lac));	// m_gprs_info.lac
-////	AES_Send(",",1);
-////	AES_Send(m_gprs_info.cid,strlen(m_gprs_info.cid));	// m_gprs_info.cid
-////	AES_Send(",0,0,",5);
-////	AES_Send(m_gprs_info.imsi,strlen(m_gprs_info.imsi));
-////	AES_Send(",",1);
-////	AES_Send(punStoreInfo->id,DEVICE_ID_LEN);
-////	if (PWR_GetFlagStatus(PWR_FLAG_PVDOF) != RESET)	// 电池欠压
-////	{
-////		AES_Send("1",1);
-////	}
-////	else
-////	{
-////		AES_Send("0",1);
-////	}
-//////	if(GetSensorState() == 0)	// 干簧管断开，箱子空
-//////	{
-//////		AES_Send("100",3);
-//////	}
-//////	else
-//////	{
-//////		AES_Send("000",3);
-//////	}
-//////	if(GetSensorState() == 0)	// 干簧管断开，箱子空
-//////	{
-//////		AES_Send("10",2);
-//////	}
-//////	else
-//////	{
-//////		AES_Send("00",2);
-//////	}
-////	/********TEST******/
-////	if(GetSensorState() == 0)	// 干簧管断开，箱子空
-////	{
-////		AES_Send("1",1);
-////	}
-////	else
-////	{
-////		AES_Send("0",1);
-////	}
-////	if(SensorWakeUpFlag == 1)	// 干簧管触发
-////	{
-////		AES_Send("1",1);
-////	}
-////	else
-////	{
-////		AES_Send("0",1);
-////	}
-////	/********TEST******/
-////	AES_Send(&RF_ResetNum,1);// 射频芯片复位次数
-////	AES_Send(&punStoreInfo->reset_num,1);// 复位次数
-
-////	for(i =50*(Sendnum-1); i < u8TagNum; i++)
-////	{
-////		hex2strid(tmpbuf, stTag[i].ID, 20);
-////		AES_Send("#",1);	
-////		AES_Send(tmpbuf,20);
-////		AES_Send("0",1);
-////	}
-////	AES_Send("\r\n",2);	
-////	if(u8addlen != 0)
-////	{
-////		for(i=0; i < u8addlen; i++)
-////			AES_Send("0",1);
-////	}
-////	/*第二层加密*/
-////	AES_init_ctx(&m_aes, m_key);
-////	AES_ECB_encrypt(&m_aes,m_randkey);	//对一轮密钥进行加密并发送
-////	
-////	// 发送加密后的数据 16字节
-////	Uart_SendData(m_randkey,16);
-////	if(Sendnum == 1)
-////	{
-////		// 数据发送后
-////		macPIB.u8PanDianFlag = 0; 	// 清除盘点状态
-////		u8TagNum = 0; 	// 清空从节点信息
-////	}
-////	else
-////	{
-////		u8TagNum = 50;
-////	}
 	return Check_Response("SEND OK",300);
 }
 /*************************************************************
@@ -714,16 +776,14 @@ en_M2MState m2m_TCP_Send(void)
 **************************************************************/
 uint8_t m2m_init(void)
 {
-	uint8_t i;
+	uint8 i;
 	
+	m2m_pwron(ENABLE);   //开机
 //	GPRSPowerOn(); // GPRS上电
-//	
 	m2m_reset();
-	nrf_gpio_pin_set(PWRKEY);
-	delay_ms(500); 
-	nrf_gpio_pin_clear(PWRKEY);
-	delay_ms(5000);
-	memset((uint8_t*)&m_gprs_info, 0, sizeof(gprs_info_t));
+	tmrDelay(5000);
+
+	comMEMSET((uint8_t*)&m_gprs_info, 0, sizeof(gprs_info_t));
 	//init_fun_num = sizeof(m2m_init_list)/sizeof(m2m_init_list[0]);
 	
 	for(i = 0; i < M2M_TASK_NUM; i++)
@@ -742,12 +802,14 @@ void m2m_echoclose(void)
 	Check_Response("OK",20);
 }
 
-// 复位2G模块
-void  m2m_reset(void)
+// 关闭回显
+void m2m_reset(void)
 {
-	SendAT_CheckResponse("AT+CFUN=1,1", "OK", 20, 1);	//模块复位
+	SendAT_CheckResponse("AT+RESET", "OK", 10, 5);
+//	Send_AT_Command("AT+RESET\r\n");
+//	//Send_AT_Command("AT\r\n");
+//	Check_Response("OK",20);
 }
-
 
 
 

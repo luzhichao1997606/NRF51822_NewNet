@@ -24,7 +24,6 @@
 
 
 #define 	CardNum				10
-#define 	PacksSensorNum		40
 #define		STORE_MAGIC		0x12345679
 #define   	STORE_PAGE			127
 
@@ -37,7 +36,7 @@ uint8_t MQTT_Resv_Read_data = 	0;
 //Updata 订阅解析
 uint8_t MQTT_Resv_Cycle 	  =	1;  // 上报周期，单位分钟，1~255
 uint8_t MQTT_Resv_AlarmTime   =	10; // 报警持续时间，单位分钟，0~255，0不报警，255持续报警 
-uint8_t MQTT_Resv_Channel     =	30; // 工作信道（传参到NRF24L01）
+uint8_t MQTT_Resv_Channel     =	1; // 工作信道（传参到NRF24L01）
 uint8_t MQTT_Resv_SensorNum   =	120;// 1-240 该数传设备下面的采集模块数量(配置数组)
 uint8_t MQTT_Resv_SensorCycle =	35; // 传感器上报周期，单位分钟，10~255，最低10分钟(清除数组数据) 
  
@@ -77,6 +76,8 @@ unsigned char tempBuffer[10];
 unsigned char SendBuffer[1200];
 
 unsigned char Buffer[2]= {0x29,0x55};
+
+unsigned char W5500_NOPHY_TryGPRS_Flag = 0 ;
 NRF24L01_Data_Set NRF_Data_Poll_1; 
  
 //unsigned char ReciveBuffer[500];
@@ -315,6 +316,9 @@ static void InitW5500SocketBuf(void)
 static void PhyLinkStatusCheck(void)
 {
 	uint8_t tmp;
+	uint8_t Count_Over = 0;
+	__disable_interrupt();
+
 	do{
 		if(ctlwizchip(CW_GET_PHYLINK, (void*)&tmp) == -1){
 			UART_Printf("Unknown PHY Link stauts.\r\n");
@@ -322,9 +326,22 @@ static void PhyLinkStatusCheck(void)
 		if(tmp == PHY_LINK_OFF){
 			UART_Printf("PHY Link OFF!!!\r\n");//如果检测到，网线没连接，提示连接网线
 			delay_ms(2000);              //延时2s
+			Count_Over++;
+			//30s 没有连接PHY则说明是转到了GPRS
+			if (Count_Over >= 2)
+			{
+				W5500_NOPHY_TryGPRS_Flag = 1;
+				UART_Printf("\r\n NET Change to GPRS \r\n");
+				break;
+			} 
 		}
 	}while(tmp == PHY_LINK_OFF);
-	UART_Printf(" PHY Link Success.\r\n");
+
+	__enable_interrupt();
+	if (!W5500_NOPHY_TryGPRS_Flag)
+	{
+		UART_Printf(" PHY Link Success.\r\n");
+	} 
 }
 
 
@@ -485,7 +502,17 @@ int NetworkInitHandler(void)
     RegisterSPItoW5500();/*将SPI接口函数注册到W5500的socket库中*/
     InitW5500SocketBuf();/*初始化W5500网络芯片:直接调用官方提供的初始化库*/
     PhyLinkStatusCheck();/* PHY链路状态检查*/
-    DhcpInitHandler();   /*DHCP初始化*/
+	if (!W5500_NOPHY_TryGPRS_Flag)
+	{
+		DhcpInitHandler();   /*DHCP初始化*/
+	}
+	else
+	{
+		//初始化GPRS
+		UART_Printf("GPRS INIT \r\n");
+	}
+	
+  
 	
 //	rc = PhyLinkStatusCheck();/* PHY链路状态检查*/
 	
@@ -736,7 +763,7 @@ size_t HeartBeat_lenght = 0;
 size_t SendData_lenght = 0; 
 uint16_t Pack_Num_Last = 0;		//传感器少于40
 uint8_t DataRiver[(PacksSensorNum * 10 )+ 1]  ;  
-char * Creat_json_MQTT_SendData(uint8 Pub_State,uint8 Pack_NUM)
+char * Creat_json_MQTT_SendData(uint8_t Pub_State,uint8_t Pack_NUM)
 {
 	cJSON * usr; 
 	uint8 * out ;
@@ -760,7 +787,8 @@ char * Creat_json_MQTT_SendData(uint8 Pub_State,uint8 Pack_NUM)
 		cJSON_AddItemToObject(usr, "SensorStart", cJSON_CreateNumber(((Pack_NUM -1)*PacksSensorNum )+ 1));
 		cJSON_AddItemToObject(usr, "SensorData", cJSON_CreateString(DataRiver)); 
 
-		out = cJSON_Print(usr); //将json形式打印成正常字符串形式
+		//out = cJSON_Print(usr); //将json形式打印成正常字符串形式
+		out = cJSON_PrintUnformatted(usr); //将json形式打印成正常字符串形式
 		
 		UART_Printf("json Data : %s\r\n",out);
 		
@@ -782,7 +810,7 @@ char * Creat_json_MQTT_SendData(uint8 Pub_State,uint8 Pack_NUM)
 		 
 		cJSON_AddItemToObject(usr,"Heartbeat",cJSON_CreateNumber(NewTime));
 
-		out = cJSON_Print(usr); //将json形式打印成正常字符串形式
+		out = cJSON_PrintUnformatted(usr); //将json形式打印成正常字符串形式
 
 		UART_Printf("json Data : %s\n",out);
 		// 释放内存
@@ -808,7 +836,7 @@ char * Creat_json_MQTT_SendData(uint8 Pub_State,uint8 Pack_NUM)
 		cJSON_AddItemToObject(usr, "SensorStart", cJSON_CreateNumber(((Pack_NUM -1)*Pack_Num_Last )+ 1));
 		cJSON_AddItemToObject(usr, "SensorData", cJSON_CreateString(DataRiver_TempForLess)); 
 
-		out = cJSON_Print(usr); //将json形式打印成正常字符串形式
+		out = cJSON_PrintUnformatted(usr); //将json形式打印成正常字符串形式
 		
 		UART_Printf("json Data : %s\r\n",out);
 		

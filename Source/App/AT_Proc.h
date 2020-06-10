@@ -64,35 +64,37 @@ typedef enum
 {
 	AT = 0,
 	ATE0,
-	AT_CIPHEAD,       //接收数据时是否增加 IP 头提示 
-	AT_CPIN,         //查询PIN码锁状态
-	AT_CREG, 		 //网络注册信息
-	AT_CREG_1, 		 //查询网络注册信息
-	AT_COPS,      //设置运营商
+	AT_CIPHEAD,		//接收数据时是否增加 IP 头提示 
+	AT_CPIN,		//查询PIN码锁状态
+	AT_CREG,		//网络注册信息
+	AT_CREG_1,		//查询网络注册信息
+	AT_COPS,		//设置运营商
 	AT_COPS_1,      //查询运营商
-	AT_CSQ,      //查询信号
-	AT_CGATT,	//是否附着GPRS
-	AT_CIPSHUT,    //关闭GPRS(PDP上下文去激活)
-	AT_CSTT, 	  //设置APN
-	AT_CIICR,   //激活GPRS连接
-	AT_CIFSR,       //获取本机地址
-//	AT_CIPCSGP,
-	AT_CIPSTART,     //建立TCP连接
-	
-	AT_TCPSEND, //发送TCP消息
-	AT_TCPDEL,  //取消TCP连接
-	//AT_IDIE,
+	AT_CSQ,      	//查询信号
+	AT_CGATT,		//是否附着GPRS
+	AT_CIPSHUT,    	//关闭GPRS(PDP上下文去激活)
+	AT_CSTT, 	  	//设置APN
+	AT_CIICR,   	//激活GPRS连接
+	AT_CIFSR,       //获取本机地址 
+	AT_MCONFIG,		//MQTT设置参数
+	AT_MIPSTART,	//设置连接时的地址和端口号
+	AT_MCONNECT,	//开始建立MQTT链接
+	AT_MQTTMSGSET,	//设置MQTT的参数
+	AT_MPUB,		//MQTT的发送  
+
 }teATCmdNum;
 extern teATCmdNum ATNextCmdNum;                                        //下条指令
 extern teATCmdNum ATCurrentCmdNum;                                     //当前指令
-
+extern uint8_t GPRS_InitOver_Flag ;
 void NB_Work(void);
 
+void ATRec(void);
+void MQTT_GPRS_ResvData(void);
 void NB_Init(void);
 void NB_Task(void);
 void Rec_WaitAT(void);
 void COAPSendData(uint16_t Flag);
-
+void MQTT_GPRS_SendRscvDataCMD(void);
 /*定时器相关*/
 typedef struct
 {
@@ -102,6 +104,6 @@ typedef struct
 void GetTime(tsTimeType *TimeType,uint32_t TimeInter);
 uint8_t  CompareTime(tsTimeType *TimeType);
 /* Private functions ---------------------------------------------------------*/
-
-
+extern void MQTT_GPRS_SendData();
+extern void MQTT_GPRS_Heartbeat();
 #endif /* __NET_HANDLER_H__ */

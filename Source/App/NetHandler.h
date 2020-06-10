@@ -4,7 +4,7 @@
  * @Author: lzc
  * @Date: 2020-05-29 15:25:53
  * @LastEditors: lzc
- * @LastEditTime: 2020-06-06 12:17:37
+ * @LastEditTime: 2020-06-10 18:08:30
  */ 
 /**
  * NetHander.h 网络初始化函数
@@ -27,6 +27,8 @@
 #define MQTT_Publish_Type_SendData	  0
 #define MQTT_Publish_Type_HeartBeat   1
 #define MQTT_Publish_Type_CountLess40 2
+
+#define	PacksSensorNum				  40
 //Alarm 订阅解析
 extern uint8_t MQTT_Resv_Alarm ;
 extern uint8_t *MQTT_Resv_AlarmData ;
@@ -39,6 +41,8 @@ extern uint8_t MQTT_Resv_Channel ;
 extern uint8_t MQTT_Resv_SensorNum ;
 extern uint8_t MQTT_Resv_SensorCycle ; 
 
+//GPRS标志位
+extern uint8_t W5500_NOPHY_TryGPRS_Flag  ;
 typedef struct   //AT指令结构体  5个字段
 {
 	uint8_t cardid[2];
@@ -57,6 +61,9 @@ typedef struct   //AT指令结构体  5个字段
 }card_pkg_t,*card_pkg;
 
 extern uint8_t Read_ID[16];
+extern uint8_t SensorNum;
+
+extern uint16_t Pack_Num_Last ;		//传感器少于40
 extern wiz_NetInfo gWIZNETINFO;
 
 /* Private functions ---------------------------------------------------------*/
@@ -71,7 +78,8 @@ int MQTT_Init(void);
 int MQTT_Working(void);
 int MQTT_HeartBeat(void);
 int MQTT_SendData(void);
-
+char * Creat_json_MQTT_SendData(uint8_t Pub_State,uint8_t Pack_NUM);
+int Unpack_json_MQTT_ResvData(uint8_t * ResvData);
 uint8_t yeelink_get(const char *device_id,const char *sensors_id,char *value);
 
 #endif /* __NET_HANDLER_H__ */

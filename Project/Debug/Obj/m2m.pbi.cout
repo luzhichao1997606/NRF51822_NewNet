@@ -1,114 +1,126 @@
-"E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\GPRS\m2m.c"
+"C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\GPRS\m2m.c"
 -std=c99
 -ferror-limit=100
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\App
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\App
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\Hal
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\Hal
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\Library
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\Library
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\Library\nRF_Drivers
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\Library\nRF_Drivers
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\components\toolchain
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\components\toolchain
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\components\toolchain\iar
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\components\toolchain\iar
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\components\device
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\components\device
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\components\toolchain\gcc
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\components\toolchain\gcc
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\hal
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\hal
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\spi_master
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\spi_master
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\components\libraries\util
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\components\libraries\util
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\config
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\config
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\nrf_soc_nosd
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\nrf_soc_nosd
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\common
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\common
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\clock
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\clock
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\delay
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\delay
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\w5500\Ethernet
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\w5500\Ethernet
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\Rf
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\Rf
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\wdt
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\wdt
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\GPRS
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\GPRS
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\w5500\Ethernet\W5500
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\w5500\Ethernet\W5500
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\w5500\Internet\DHCP
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\w5500\Internet\DHCP
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\w5500\Internet\DNS
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\w5500\Internet\DNS
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\w5500\Internet\MQTT
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\w5500\Internet\MQTT
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\cJSON
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\cJSON
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Project\..\Source\protobuf_c
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\protobuf_c
+-I
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\nrf24l01
+-I
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf\ble_flash
+-I
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\..\Source\components\drivers_nrf
 -I
 C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.3\arm\inc
 -I
 C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.3\arm\inc\c
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\App
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\App
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\Hal
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\Hal
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\Library
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\Library
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\Library\nRF_Drivers
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\Library\nRF_Drivers
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\components\toolchain
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\toolchain
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\components\toolchain\iar
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\toolchain\iar
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\components\device
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\device
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\components\toolchain\gcc
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\toolchain\gcc
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\components\drivers_nrf\hal
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\drivers_nrf\hal
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\components\drivers_nrf\spi_master
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\drivers_nrf\spi_master
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\components\libraries\util
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\libraries\util
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\components\drivers_nrf\config
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\drivers_nrf\config
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\components\drivers_nrf\nrf_soc_nosd
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\drivers_nrf\nrf_soc_nosd
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\components\drivers_nrf\common
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\drivers_nrf\common
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\components\drivers_nrf\clock
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\drivers_nrf\clock
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\components\drivers_nrf\delay
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\drivers_nrf\delay
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\w5500\Ethernet
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\w5500\Ethernet
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\Rf
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\Rf
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\components\drivers_nrf\wdt
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\drivers_nrf\wdt
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\GPRS
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\GPRS
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\w5500\Ethernet\W5500
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\w5500\Ethernet\W5500
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\w5500\Internet\DHCP
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\w5500\Internet\DHCP
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\w5500\Internet\DNS
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\w5500\Internet\DNS
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\w5500\Internet\MQTT
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\w5500\Internet\MQTT
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\cJSON
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\cJSON
 -I
-E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网关\Source\protobuf_c
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\protobuf_c
+-I
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\nrf24l01
+-I
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\drivers_nrf\ble_flash
+-I
+C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Source\components\drivers_nrf
 -DNRF51=1
 -DNRF51822=1
 -D__CHAR_BITS__=8
@@ -334,8 +346,8 @@ E:\QILAI_WORK\125k 人员定位\nrf51822_w5500__mqtt_gateway\Source\Nrf51800_W5500网
 -D__EDG_SYSV=0
 -D__EDG_ANSIC=1
 -D__EDG_CPP11_IL_EXTENSIONS_SUPPORTED=1
--D_DLIB_CONFIG_FILE_HEADER_NAME="C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.3\arm\INC\c\DLib_Config_Normal.h"
--D_DLIB_CONFIG_FILE_STRING="C:\\Program Files (x86)\\IAR Systems\\Embedded Workbench 7.3\\arm\\INC\\c\\DLib_Config_Normal.h"
+-D_DLIB_CONFIG_FILE_HEADER_NAME="C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.3\arm\INC\c\DLib_Config_Full.h"
+-D_DLIB_CONFIG_FILE_STRING="C:\\Program Files (x86)\\IAR Systems\\Embedded Workbench 7.3\\arm\\INC\\c\\DLib_Config_Full.h"
 -D__VERSION__="IAR ANSI C/C++ Compiler V7.50.3.10732/W32 for ARM"
 -D__CODE_MEMORY_LIST1__()=__CODE_MEM_HELPER1__(__code, 0 )
 -D__CODE_MEMORY_LIST2__(_P1)=__CODE_MEM_HELPER2__(__code, 0 ,  _P1 )

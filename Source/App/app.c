@@ -129,14 +129,36 @@ uint32 TimeDifference(uint32 newtime,uint32 oldtime)
 int HeartBeatHandler(void)
 {
     UART_Printf("\r\nRun into HeartBeatHandler function !\r\n");
-	return MQTT_HeartBeat();
+    if (!W5500_NOPHY_TryGPRS_Flag)
+    {
+        /* code */
+        return MQTT_HeartBeat();
+    }
+    else
+    {
+        UART_Printf("HeartBeat!!!!!!!!!!!!! \r\n");
+        MQTT_GPRS_Heartbeat(); 
+    }
+    
+	
 }
 
 /*数据发送处理函数*/
 int SendDataHandler(void)
 {
     UART_Printf("\r\nRun into SendDataHandler function !\r\n");
-	return MQTT_SendData();
+    if (!W5500_NOPHY_TryGPRS_Flag)
+    {
+        /* code */
+	    return MQTT_SendData();
+    }
+    else
+    {
+        UART_Printf("SendData!!!!!!! \r\n");
+        MQTT_GPRS_SendData(); 
+    }
+    
+    
 }
 
 //*********************************函数实体区**********************************
@@ -160,7 +182,14 @@ void SoftWareInit(void)
     //LoopEventSetBit(APP_EVENT_GATEWAY_RECVNET);
 	
 	/*接收网络协议数据事件*/
-    LoopEventSetBit(APP_EVENT_GATEWAY_NETINT);//使用W5500通讯
+    if (!W5500_NOPHY_TryGPRS_Flag)
+    {
+        LoopEventSetBit(APP_EVENT_GATEWAY_NETINT);//使用W5500通讯
+    }
+    else
+    {
+        LoopEventSetBit(APP_EVENT_GATEWAY_GPRSINT);//使用GPRS通讯
+    } 
 //	LoopEventSetBit(APP_EVENT_GATEWAY_GPRSINT);//使用GPRS通讯
 }
 
@@ -196,7 +225,7 @@ void LoopTimeEventSetBit(EventType event)
 void SoftWareEventInLoop(void)
 {
     uint8  hdlstate=0;  /*处理状态*/
-   
+    uint8_t GPRS_Status = 0;
     static uint32_t dhcp_ret = DHCP_STOPPED;
 	
 	//----------------------------------/*软件在环--初始化W5500事件*/
@@ -215,7 +244,7 @@ void SoftWareEventInLoop(void)
             hdlstate ^= hdlstate; 
         } 
     }
-	 
+	
 	//----------------------------------/*软件在环--W5500 DHCP配置事件*/
     if(LoopEvents & APP_EVENT_GATEWAY_DHCP ){
         UART_Printf("\r\n APP_EVENT_GATEWAY_DHCP!\r\n");
@@ -240,19 +269,21 @@ void SoftWareEventInLoop(void)
 	//----------------------------------/*软件在环--初始化W5500 Mqtt事件*/
     if(LoopEvents & APP_EVENT_GATEWAY_CONNECT){
         UART_Printf("\r\n APP_EVENT_GATEWAY_CONNECT!\r\n");
-        if(MQTT_Init() != 0)
-        {
-			LoopEventSetBit(APP_EVENT_GATEWAY_NETINT);/*置位网络终端协议转换事件*/
-            /*置位初始化W5500  事件*/  
-            //LoopEvents |= APP_EVENT_GATEWAY_NETINT;  
+        if (!W5500_NOPHY_TryGPRS_Flag)
+        { 
+            if(MQTT_Init() != 0  )
+            {
+			    LoopEventSetBit(APP_EVENT_GATEWAY_NETINT);/*置位网络终端协议转换事件*/
+                /*置位初始化W5500  事件*/  
+                //LoopEvents |= APP_EVENT_GATEWAY_NETINT;  
+            }
+		    else  
+            {   
+                LoopEventSetBit(APP_EVENT_GATEWAY_RECVNET);/*置位网络终端协议转换事件*/
+                /*置位初始化W5500 Mqtt接收事件*/  
+                //LoopEvents |= APP_EVENT_GATEWAY_RECVNET; 
+            }
         }
-		else  
-        {   
-            LoopEventSetBit(APP_EVENT_GATEWAY_RECVNET);/*置位网络终端协议转换事件*/
-            /*置位初始化W5500 Mqtt接收事件*/  
-            //LoopEvents |= APP_EVENT_GATEWAY_RECVNET; 
-        }
-
         hdlstate=1;
         if(hdlstate)
         {
@@ -264,14 +295,16 @@ void SoftWareEventInLoop(void)
 	//----------------------------------/*软件在环--W5500 mqtt接收事件*/
     if(LoopEvents & APP_EVENT_GATEWAY_RECVNET){
 //        UART_Printf("\r\n APP_EVENT_GATEWAY_RECVE!\r\n");
-        if(MQTT_Working()!=0)
-		{
-			LoopEventSetBit(APP_EVENT_GATEWAY_NETINT);/*置位网络终端协议转换事件*/
-            /*置位初始化W5500  事件*/  
-            //LoopEvents |= APP_EVENT_GATEWAY_NETINT; 
-
-			hdlstate=1;
-		}
+        if ( !W5500_NOPHY_TryGPRS_Flag )
+        { 
+            if(MQTT_Working()!=0   )
+		    {
+			    LoopEventSetBit(APP_EVENT_GATEWAY_NETINT);/*置位网络终端协议转换事件*/
+                /*置位初始化W5500  事件*/  
+                //LoopEvents |= APP_EVENT_GATEWAY_NETINT;  
+			    hdlstate=1;
+		    }
+        }
 //        LoopEventSetBit();/*不会引起其他事件*/
 //        hdlstate=1;
         if(hdlstate){
@@ -283,9 +316,8 @@ void SoftWareEventInLoop(void)
     //----------------------------------/*软件在环--初始化GPRS事件*/
     if(LoopEvents & APP_EVENT_GATEWAY_GPRSINT){
         UART_Printf("\r\n APP_EVENT_GATEWAY_GPRSINT!\r\n");
-        /*复位、初始化GPRS指令参数*/
-    	NB_Init();          //初始化NB模组
-		
+        /*复位、初始化GPRS指令参数*/  
+        NB_Init();
         LoopEventSetBit(APP_EVENT_GATEWAY_GPRSDO);/*置位网络终端协议转换事件*/
         hdlstate=1;
         if(hdlstate){
@@ -297,9 +329,15 @@ void SoftWareEventInLoop(void)
     if(LoopEvents & APP_EVENT_GATEWAY_GPRSDO){
       
 //        UART_Printf("\r\n APP_EVENT_GATEWAY_RECVE!\r\n");
-          NB_Work();  
-//        LoopEventSetBit();/*不会引起其他事件*/
-//        hdlstate=1;
+        NB_Work();  
+        if (GPRS_InitOver_Flag)
+        {
+           LoopEventSetBit(APP_EVENT_GATEWAY_RECVNET);/*置位网络终端协议转换事件*/
+           hdlstate=1;
+        } 
+        // LoopEventSetBit();/*不会引起其他事件*/
+        //LoopEventSetBit(APP_EVENT_GATEWAY_RECVNET);/*置位网络终端协议转换事件*/
+        
         if(hdlstate){
             LoopEvents ^= APP_EVENT_GATEWAY_GPRSDO;
             hdlstate ^= hdlstate;
@@ -318,104 +356,7 @@ void SoftWareEventInLoop(void)
             LoopEvents ^= APP_EVENT_GATEWAY_TIMEING;
             hdlstate ^= hdlstate;
         }
-    }
-	
-	
-////////*******************网络NET->GATEWAY->终端*************************************/
-//////    //----------------------------------/*软件在环--接收网络协议数据事件*/
-//////    if(LoopEvents & APP_EVENT_GATEWAY_RECVNET){
-//////        UART_Printf("\r\n APP_EVENT_GATEWAY_RECVNET!\r\n");
-//////        
-//////        LoopEventSetBit(APP_EVENT_GATEWAY_NETTOEDV);/*置位网络终端协议转换事件*/
-//////        hdlstate=1;
-//////        if(hdlstate){
-//////            LoopEvents ^= APP_EVENT_GATEWAY_RECVNET;
-//////            hdlstate ^= hdlstate;
-//////        }
-//////    }
-//////    
-//////    //----------------------------------/*软件在环--网络终端协议转换事件*/
-//////    if(LoopEvents & APP_EVENT_GATEWAY_NETTOEDV){
-//////        UART_Printf("\r\n APP_EVENT_GATEWAY_NETTOEDV!\r\n");
-//////        while( !((dhcp_ret == DHCP_IP_ASSIGN) || (dhcp_ret == DHCP_IP_CHANGED) || (dhcp_ret == DHCP_FAILED) || (dhcp_ret == DHCP_IP_LEASED)))
-//////		{
-//////			dhcp_ret = DHCP_proc();      
-//////		}
-//////		DHCP_stop();// if restart, recall DHCP_init()
-//////        LoopEventSetBit(APP_EVENT_GATEWAY_SENDEDV);/*置位串口传送事件*/
-//////        hdlstate=1;
-//////        if(hdlstate){
-//////            LoopEvents ^= APP_EVENT_GATEWAY_NETTOEDV;
-//////            hdlstate ^= hdlstate;
-//////        }
-//////    }
-//////    
-//////    //----------------------------------/*软件在环--发送终端协议数据事件*/
-//////    if(LoopEvents & APP_EVENT_GATEWAY_SENDEDV){
-//////        UART_Printf("\r\n APP_EVENT_GATEWAY_SENDEDV!\r\n");
-//////        MQTT_Init(); 
-//////		//LoopEventSetBit();/*不会引起其他事件*/
-//////        hdlstate=1;
-//////        if(hdlstate){
-//////            LoopEvents ^= APP_EVENT_GATEWAY_SENDEDV;
-//////            hdlstate ^= hdlstate;
-//////        } 
-//////    }
-//////
-////////*******************终端->GATEWAY->网络NET*************************************/    
-//////    //----------------------------------/*软件在环--接收终端协议数据事件*/
-//////    if(LoopEvents & APP_EVENT_GATEWAY_RECVEDV){
-//////        UART_Printf("\r\n APP_EVENT_GATEWAY_RECVEDV!\r\n");
-//////        
-//////        //APP_SerialRecvHandler();/*串口接收处理事件*/
-//////
-//////        LoopEventSetBit(APP_EVENT_GATEWAY_EDVTONET);/*置位终端网络协议转换事件*/
-//////        hdlstate=1;
-//////        if(hdlstate){
-//////            LoopEvents ^= APP_EVENT_GATEWAY_RECVEDV;
-//////            hdlstate ^= hdlstate;
-//////        }
-//////    }
-//////    
-//////    //----------------------------------/*软件在环--终端网络协议转换事件*/
-//////    if(LoopEvents & APP_EVENT_GATEWAY_EDVTONET){
-//////        UART_Printf("\r\n APP_EVENT_GATEWAY_EDVTONET!\r\n");
-//////         
-//////        LoopEventSetBit(APP_EVENT_GATEWAY_SENDNET);/*置位终端网络协议转换事件*/
-//////        hdlstate=1;
-//////        if(hdlstate){
-//////            LoopEvents ^= APP_EVENT_GATEWAY_EDVTONET;
-//////            hdlstate ^= hdlstate;
-//////        }
-//////    }
-//////    
-//////    //----------------------------------/*软件在环--发送网络协议数据事件*/
-//////    if(LoopEvents & APP_EVENT_GATEWAY_SENDNET){
-//////        UART_Printf("\r\n APP_EVENT_GATEWAY_SENDNET!\r\n");
-//////        
-//////        //LoopEventSetBit();/*不会引起其他事件*/
-//////        hdlstate=1;
-//////        if(hdlstate){
-//////            LoopEvents ^= APP_EVENT_GATEWAY_SENDNET;
-//////            hdlstate ^= hdlstate;
-//////        }
-//////    }
-//////    
-////////*******************网关定时**************************************************/     
-//////    //----------------------------------/*软件在环网关定时事件*/
-//////    if(LoopEvents & APP_EVENT_GATEWAY_TIMEING){
-//////        UART_Printf("\r\n Gateway timed events in SoftWareEventInLoop!\r\n");
-//////        UART_Printf("\r\n APP_EVENT_GATEWAY_TIMEING!\r\n");
-//////        
-//////        UART_Printf("\r\n Handler SoftTimeingLoopEvent Function!\r\n");
-//////        hdlstate=SoftTimeingLoopEvent();/*定时循环事件执行函数*/
-//////        if(hdlstate){
-//////            LoopEvents ^= APP_EVENT_GATEWAY_TIMEING;
-//////            hdlstate ^= hdlstate;
-//////        }
-//////    }
-    
-    
+    }   
 //*****************************************************************************/      
     LoopEvents |= LoopEventstmp;
     LoopEventstmp ^= LoopEventstmp;
@@ -437,6 +378,8 @@ void SoftWareTimeingEventInLoop(void)
 	uint8 tag_cnt;
     static uint32 HeartBeatLt=0; /*定义心跳事件上一次状态的时间 */
  	static uint32 SendDataLt=0; /*定义心跳事件上一次状态的时间 */
+    static uint32 GPRSSendDataLt=0; /*定义gprs事件上一次状态的时间 */
+      
     static uint8  HeartBeatLtNowtimeStr[10];//打印心跳当前时间
     uint32  newTime=0;//范围：0-4294967295(4 Bytes)
     newTime=GetSystemNowtime();/*获得当前运行时间*/  
@@ -537,7 +480,16 @@ void SoftWareTimeingEventInLoop(void)
            MQTT_Relay_AlarmCount = newTime;
         } 
         Clear_Buffer_TimeOutTask();  //清除Buffer数据
-		NRF_ALLReflash_Channel();	 //NRF刷新通道
+		NRF_ALLReflash_Channel();	 //NRF刷新通道 
+        
+    //********GPRS事件网关数据包事件***************************************************
+        if (W5500_NOPHY_TryGPRS_Flag && TimeDifference(newTime,GPRSSendDataLt)>=(GPRS_Rscv_DATA_TIME))
+        {
+            GPRSSendDataLt = newTime;
+            //发送接收事件的命令
+            MQTT_GPRS_SendRscvDataCMD();
+        }
+        
     }
 
     LoopTimeEvents|=LoopTimeEventstmp;

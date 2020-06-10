@@ -1,9 +1,7 @@
 #ifndef M2M_H
 #define M2M_H
 
-//#include "hal.h"
-
-#include "Uart.h"	
+#include "hal.h"
 
 typedef enum 
 {
@@ -27,16 +25,11 @@ typedef struct
   char csq[10];
 }gprs_info_t;
 
-typedef struct
-{
-    uint8_t  u8Count;      // 接收buf有效字节数
-    uint8_t  Buf[40];  // 接收buf
-} st_AES;
 
-extern st_AES stAES;
+
 extern gprs_info_t m_gprs_info;
 
-void  			m2m_pwron(unsigned char NewState);
+void m2m_pwron(unsigned char NewState);
 
 en_M2MState m2m_gprscheck(void);
 en_M2MState m2m_findsim(void);
@@ -73,37 +66,29 @@ en_M2MState     m2m_GetIMSI(void);
 
 en_M2MState     m2m_getlocalip(void);
 
+
+en_M2MState     m2m_Mconfig(void);	// Mqtt 配置
+en_M2MState     m2m_Mipstart(void);	// Mqtt IP地址或域名地址，以及端口号
+en_M2MState   	m2m_Mconnect(void);	// 建立mqtt会话
+en_M2MState   	m2m_Mmsgset(void);	// 消息上报模式:缓存模式,用 AT+MQTTMSGGET 来读消息
+en_M2MState   	m2m_Mmsgget(void);  // 查询缓存中的主题订阅消息
+en_M2MState   	m2m_Msub(void);		// 订阅	
+en_M2MState     m2m_Mpub(const char *msg);		// 发送消息
+
 uint32_t 		m2m_getrcvdata(uint8_t *pdata);
 
 uint8_t  		m2m_init(void);
 void     		m2m_echoclose(void);
 
-void  m2m_reset(void);
-	
 en_M2MState m2m_Get_NetInfo(void);
 en_M2MState Check_Response(const char * Response, unsigned int Response_Time_Out);
-en_M2MState SendAT_CheckResponse(char* AT_Command, const char * Response, unsigned int Response_Time_Out, uint8_t ReSendCount);
+en_M2MState SendAT_CheckResponse(const char* AT_Command, const char * Response, unsigned int Response_Time_Out, uint8 ReSendCount);
 
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+ 
 
 #endif
