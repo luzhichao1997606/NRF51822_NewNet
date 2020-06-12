@@ -411,9 +411,10 @@ void SoftWareTimeingEventInLoop(void)
         if ( First_Power_ON_Flag )
         {
             //大于15分钟
-            if (newTime >= (First_Power_ON_TimeCount * 60  ))
+            if (newTime >= (First_Power_ON_TimeCount * 6000  ))
             {
                 First_Power_ON_Flag = false;
+                UART_Printf("超过15分钟，上报功能使能 \r\n");
             } 
         }
         if ( !First_Power_ON_Flag)

@@ -34,11 +34,11 @@ uint8_t *MQTT_Resv_AlarmData ;
 //Read_Data 订阅解析
 uint8_t MQTT_Resv_Read_data = 	0;
 //Updata 订阅解析
-uint8_t MQTT_Resv_Cycle 	  =	1;  // 上报周期，单位分钟，1~255
-uint8_t MQTT_Resv_AlarmTime   =	10; // 报警持续时间，单位分钟，0~255，0不报警，255持续报警 
-uint8_t MQTT_Resv_Channel     =	1; // 工作信道（传参到NRF24L01）
+uint8_t MQTT_Resv_Cycle 	  =	5;  // 上报周期，单位分钟，1~255
+uint8_t MQTT_Resv_AlarmTime   =	5; // 报警持续时间，单位分钟，0~255，0不报警，255持续报警 
+uint8_t MQTT_Resv_Channel     =	60; // 工作信道（传参到NRF24L01）
 uint8_t MQTT_Resv_SensorNum   =	120;// 1-240 该数传设备下面的采集模块数量(配置数组)
-uint8_t MQTT_Resv_SensorCycle =	35; // 传感器上报周期，单位分钟，10~255，最低10分钟(清除数组数据) 
+uint8_t MQTT_Resv_SensorCycle =	10; // 传感器上报周期，单位分钟，10~255，最低10分钟(清除数组数据) 
  
 typedef struct
 {
@@ -129,11 +129,11 @@ void  para_read(uint32_t page,para_cfg_t *ppara)
 		) 
 	{
 		//赋值默认数值
-		ppara->MQTT_Resv_Cycle 			= 	1;  // 上报周期，单位分钟，1~255
+		ppara->MQTT_Resv_Cycle 			= 	5;  // 上报周期，单位分钟，1~255
 		ppara->MQTT_Resv_AlarmTime 		=	10; // 报警持续时间，单位分钟，0~255，0不报警，255持续报警 
-		ppara->MQTT_Resv_Channel   		=	30; // 工作信道（传参到NRF24L01）
+		ppara->MQTT_Resv_Channel   		=	60; // 工作信道（传参到NRF24L01）
 		ppara->MQTT_Resv_SensorNum		=	120;// 1-240 该数传设备下面的采集模块数量(配置数组)
-		ppara->MQTT_Resv_SensorCycle 	=	35; // 传感器上报周期，单位分钟，10~255，最低10分钟(清除数组数据) 
+		ppara->MQTT_Resv_SensorCycle 	=	10; // 传感器上报周期，单位分钟，10~255，最低10分钟(清除数组数据) 
 
 	}
 	//如果之前就有数据说明存储过数据，所以将数据赋值给全局参数。

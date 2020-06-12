@@ -73,7 +73,7 @@ typedef uint16 EventType;
 //-----------------------定时事件执行时间--------------------------------------
 #define HEART_BEAT_TIME         1000   /*心跳事件时间：3000*10ms每30s心跳一次*/
 #define SEND_DATA_TIME          200   /*数据包事件时间：200*10ms每2s检查一次*/
-#define GPRS_Rscv_DATA_TIME     100   /*数据包事件时间：100*10ms每1s检查一次*/
+#define GPRS_Rscv_DATA_TIME     150   /*数据包事件时间：100*10ms每1.5s检查一次*/
 
 #define APP_INPUT_TMR_INTERVAL  1
 #define APP_TCP_TMR_INTERVAL    25     /*TCP 的调度周期是 250 mstcp_tmr(); */

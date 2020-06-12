@@ -252,6 +252,7 @@ void MQTT_GPRS_SendRscvDataCMD()
 //MQTT接受数据
 void MQTT_GPRS_ResvData()
 { 
+    uint8_t Count_Error = 0;
     uint8_t Topic_Num[60]; 
     uint8_t JsonData[200];
     if(stUart.RxOK)  //串口收到数据
@@ -290,6 +291,19 @@ void MQTT_GPRS_ResvData()
                 UART_Printf("JsonData : %s\r\n",JsonData); 
                 Unpack_json_MQTT_ResvData(JsonData);
             }
+            //如果发送之后出现错误那么就会重新进行数据的处理进行重新的初始化
+            if ( (stUart.Buf[i] == 'E'&& stUart.Buf[i+1] == 'R'&& stUart.Buf[i+2] == 'R'&& stUart.Buf[i+3] == 'O'&& stUart.Buf[i+4] == 'R')
+                ||(stUart.Buf[i] == 'E'&& stUart.Buf[i+1] == 'r'&& stUart.Buf[i+2] == 'r'&& stUart.Buf[i+3] == 'o'&& stUart.Buf[i+4] == 'r'))
+            {
+                Count_Error ++;
+                UART_Printf("Count_Error is %d Now ! \r\n", Count_Error);
+                if (Count_Error >= 5)
+                {
+                   Count_Error = 0;
+                   NB_Init();
+                   NB_Work();
+                } 
+            }    
         }  
         clearUart();  
     } 

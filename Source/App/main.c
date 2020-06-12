@@ -101,8 +101,7 @@ uint32_t NewTime = 0;
 	 if (MQTT_Resv_Alarm == 0 )
 	 {
 		 nrf_gpio_pin_clear(Relay_PIN);
-		 MQTT_Relay_AlarmCount_flag = 0;
-		 //UART_Printf("\r\n Clear RELAY ALARM !!!!!!!!!!!!!!!!!!\r\n"); 
+		 MQTT_Relay_AlarmCount_flag = 0; 
 	 }
 	 
  }
