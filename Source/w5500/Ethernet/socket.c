@@ -196,6 +196,7 @@ int8_t socket(uint8_t sn, uint8_t protocol, uint16_t port, uint8_t flag)
 
 int8_t close(uint8_t sn)
 {
+   uint16_t Count_Over = 0;
 	CHECK_SOCKNUM();
 //A20160426 : Applied the erratum 1 of W5300
 #if   (_WIZCHIP_ == 5300) 
@@ -233,7 +234,12 @@ int8_t close(uint8_t sn)
 	sock_is_sending &= ~(1<<sn);
 	sock_remained_size[sn] = 0;
 	sock_pack_info[sn] = 0;
-	while(getSn_SR(sn) != SOCK_CLOSED);
+	while(getSn_SR(sn) != SOCK_CLOSED)
+   {
+      Count_Over ++; 
+      if(Count_Over == 65535 )
+      {break;}
+   }
 	return SOCK_OK;
 }
 

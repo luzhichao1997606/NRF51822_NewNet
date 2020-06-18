@@ -106,4 +106,8 @@ uint8_t  CompareTime(tsTimeType *TimeType);
 /* Private functions ---------------------------------------------------------*/
 extern void MQTT_GPRS_SendData();
 extern void MQTT_GPRS_Heartbeat();
+
+extern char IP_Config_Data[18]    ;
+extern char Port_Config_Data[8]   ;
+
 #endif /* __NET_HANDLER_H__ */

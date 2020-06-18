@@ -25,7 +25,7 @@ if not "%~1" == "" goto debugFile
 
 @echo on 
 
-"C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.3\common\bin\cspybat" -f "C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\settings\Project.Debug.general.xcl" --backend -f "C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\settings\Project.Debug.driver.xcl" 
+"C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.3\common\bin\cspybat" -f "C:\Users\qilai\Desktop\Project\Project5-NewNet\Main_NRF51822_W5500_NRF24L01_Air202\Nrf51800_W5500网关\Project\settings\Project.Debug.general.xcl" --backend -f "C:\Users\qilai\Desktop\Project\Project5-NewNet\Main_NRF51822_W5500_NRF24L01_Air202\Nrf51800_W5500网关\Project\settings\Project.Debug.driver.xcl" 
 
 @echo off 
 goto end 
@@ -34,7 +34,7 @@ goto end
 
 @echo on 
 
-"C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.3\common\bin\cspybat" -f "C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\settings\Project.Debug.general.xcl" "--debug_file=%~1" --backend -f "C:\Users\qilai\Desktop\Project\Project5-NewNet\Nrf51800_W5500网关\Nrf51800_W5500网关\Project\settings\Project.Debug.driver.xcl" 
+"C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.3\common\bin\cspybat" -f "C:\Users\qilai\Desktop\Project\Project5-NewNet\Main_NRF51822_W5500_NRF24L01_Air202\Nrf51800_W5500网关\Project\settings\Project.Debug.general.xcl" "--debug_file=%~1" --backend -f "C:\Users\qilai\Desktop\Project\Project5-NewNet\Main_NRF51822_W5500_NRF24L01_Air202\Nrf51800_W5500网关\Project\settings\Project.Debug.driver.xcl" 
 
 @echo off 
 :end

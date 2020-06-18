@@ -14,6 +14,9 @@
 #include "app.h"
 #include "NetHandler.h"
 
+#define Enable   1
+#define Disable  0
+
 static uint8_t CurrentRty;                                                 //ÖØ·¢´ÎÊý
 static teATCmdNum ATRecCmdNum;                                             //½ÓÊÕ×´Ì¬
 static tsTimeType TimeNB;
@@ -34,6 +37,10 @@ uint8_t AT_error_time = 50;                                                //ÍøÂ
 uint32_t RTC_Time = 30*60;                                                 //RTC»½ÐÑÊ±¼ä
 uint8_t my_sleep = 0;                                                      //ÐÝÃß¿ª¹Ø£¨0Îª¹Ø±Õ£¡*³õÑ§Õß²»ÒªÐÞ¸Ä*£©
 uint8_t GPRS_InitOver_Flag = 0;
+//Ä¬ÈÏµÄIPÒÔ¼°¶Ë¿Ú£¬¿ÉÒÔ½øÐÐÐÞ¸Ä(MQTT)
+char IP_Config_Data[18]     = "121.89.170.53";
+char Port_Config_Data[8]    = "1884";
+
 tsATCmds ATCmds[] =                                                        //ATÖ¸ÁîÁÐ±í
 {
 	{"AT\r\n","OK",200,NO_REC,100},                                         //¹Ø±Õ»ØÏÔ²âÊÔ
@@ -58,17 +65,46 @@ tsATCmds ATCmds[] =                                                        //ATÖ
 
     {"AT+MCONFIG=\"cellid\",\"\",\"\"\r\n","OK",200,NO_REC,1},  
 
-    {"AT+MIPSTART=\"121.89.170.53\",\"1884\"\r\n","CONNECT OK",1000,NO_REC,2}, 
+    {"AT+MIPSTART=\" \",\" \"\r\n","CONNECT OK",1000,NO_REC,2}, 
 
     {"AT+MCONNECT=1,60\r\n","CONNACK OK",300,NO_REC,255}, 
     {"AT+MQTTMSGSET=1\r\n","OK",10,NO_REC,1},  
 
-    {"AT+MPUB=\"/WSN-LW/20010333/event/Data\",0,0,\"9999\"\r\n","OK",200,NO_REC,35}, 
+    {"AT+MPUB=\" \",0,0,\" \"\r\n","OK",200,NO_REC,35}, 
 
 
 	
  };
+    
+char Data_Temp_IP[18]={0};
+char Data_Temp_Port[8]={0};
+void IP_Port_Data_Get(uint8_t EnableOrNOT)
+{  
+    char Temp[2];
+    for (uint8_t i = 0; i < 4; i++)
+    {   
+        UART_Printf("Data_Temp_IP[%d] is %d \r\n",i,IP_Data[i]);
+        sprintf(Temp,"%d",IP_Data[i]);
 
+        strcat(Data_Temp_IP,Temp);
+        if (i < 3)
+        {  
+            strcat(Data_Temp_IP,".");   
+        } 
+    }  
+    sprintf(Temp,"%d",Port_Data); 
+    strcat(Data_Temp_Port,Temp);   
+
+    UART_Printf("GPRS Try Send Data_Temp_IP is %s \r\n",Data_Temp_IP); 
+    UART_Printf("GPRS Try Send Data_Temp_Port is %s \r\n",Data_Temp_Port); 
+    if (EnableOrNOT)
+    { 
+        memcpy(IP_Config_Data,Data_Temp_IP,18); 
+        memcpy(Port_Config_Data,Data_Temp_Port,8);
+        UART_Printf("Change OK \r\n");
+    }
+    
+}
 void str_replace(char * cp, int n, char * str)
 {
 	int lenofstr;
@@ -155,6 +191,21 @@ void ATSend(teATCmdNum ATCmdNum)
         ATRec();
 
     }
+    else if(ATCmdNum == AT_MIPSTART)
+    {
+        memset(NB_SendDataBuff,0,sizeof(NB_SendDataBuff)); 
+        strcat(NB_SendDataBuff,"AT+MIPSTART=\"");
+        strcat(NB_SendDataBuff,IP_Config_Data);
+        strcat(NB_SendDataBuff,"\",\""); 
+        strcat(NB_SendDataBuff,Port_Config_Data);
+        strcat(NB_SendDataBuff,"\""); 
+        strcat(NB_SendDataBuff,"\r\n");  
+       // UART_Printf("TestData : %s \r\n",jsondata_change_toGPRS(Creat_json_MQTT_SendData(MQTT_Publish_Type_SendData,1),str2,str3));
+        Uart_SendStr(NB_SendDataBuff);
+        UART_Printf("@@ NB_SendDataBuff:%s\r\n",NB_SendDataBuff);  //µ÷ÊÔ
+        ATRec();           
+    }
+    
 	else	//·¢ËÍÆÕÍ¨ATÃüÁî
 	{
 		Uart_SendStr((const uint8_t *)ATCmds[ATCmdNum].ATSendStr);
@@ -335,6 +386,7 @@ void NB_Init(void)
     UART_Printf("@@ Will Enable NB...\r\n");
 	
     NB_RESET();
+    IP_Port_Data_Get(Disable);
 //    NB_POWER_ON();                     //¿ª»ú
     NB_TaskStatus = NB_SEND;           //½øÈë·¢ËÍÄ£Ê½
     ATCurrentCmdNum = AT;              //µ±Ç°Ö¸Áî
@@ -482,8 +534,8 @@ void Rec_WaitAT(void)
             break;   
        case AT_MPUB:
             
-            UART_Printf("\r\n MQTTÉÏ±¨ÏûÏ¢PUB %d\r\n",ATCurrentCmdNum);
-            //Èç¹û½øÈë´Ë´¦ËµÃ÷GPRS³õÊ¼»¯Íê³É¡£
+            UART_Printf("\r\n MQTTÉÏ±¨ÏûÏ¢PUB %d\r\n",ATCurrentCmdNum); 
+            //Èç¹û½øÈë´Ë´¦ËµÃ÷GPRS³õÊ¼»¯Íê³É¡£ 
             GPRS_InitOver_Flag = 1; 
             ATCurrentCmdNum  = AT_MQTTMSGSET;
             ATNextCmdNum = (teATCmdNum)(ATCurrentCmdNum +1);   //ÃüÁîµÝ½ø

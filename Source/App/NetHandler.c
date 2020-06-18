@@ -6,6 +6,7 @@
  * Support:qf.200806@163.com
  */
 #include "NetHandler.h"
+#include "math.h"
 #include "hal.h"    //包含需要的头文件
 #include "app.h"
 #include "mystring.h"
@@ -26,8 +27,11 @@
 #define 	CardNum				10
 #define		STORE_MAGIC		0x12345679
 #define   	STORE_PAGE			127
+#define		STATIC_PAGE			126
 
+#define		Debug_TCP 			0
 /*默认数据*/
+/**MQTT**/
 //Alarm 订阅解析
 uint8_t MQTT_Resv_Alarm = 0;
 uint8_t *MQTT_Resv_AlarmData ;
@@ -39,24 +43,57 @@ uint8_t MQTT_Resv_AlarmTime   =	5; // 报警持续时间，单位分钟，0~255，0不报警，25
 uint8_t MQTT_Resv_Channel     =	60; // 工作信道（传参到NRF24L01）
 uint8_t MQTT_Resv_SensorNum   =	120;// 1-240 该数传设备下面的采集模块数量(配置数组)
 uint8_t MQTT_Resv_SensorCycle =	10; // 传感器上报周期，单位分钟，10~255，最低10分钟(清除数组数据) 
- 
+
+/**TCP**/
+uint8_t		SIP_SaveData[4] = {192,168,3,128};	//静态IP
+uint8_t		GW_SaveData[4]	= {192,168,3,1};	//默认网关
+uint8_t		YIP_SaveData[4] = {192,168,3,145};	//服务器IP
+uint8_t		SN_SaveData[4]  = {255,255,255,0};	//子网掩码
+
+uint16_t	SPORT_SaveData = 8080;				//静态端口
+uint16_t	YPORT_SaveData = 1883;				//服务器端口
+
 typedef struct
 {
+	//MQTT
 	uint8_t		MQTT_Resv_Cycle; 			// 上报周期，单位分钟，1~255
 	uint8_t		MQTT_Resv_AlarmTime; 		// 报警持续时间，单位分钟，0~255，0不报警，255持续报警 
 	uint8_t		MQTT_Resv_Channel; 			// 工作信道（传参到NRF24L01）
 	uint8_t		MQTT_Resv_SensorNum ;		// 1-240 该数传设备下面的采集模块数量(配置数组)
 	uint8_t 	MQTT_Resv_SensorCycle ;		// 传感器上报周期，单位分钟，10~255，最低10分钟(清除数组数据) 
 	uint8_t 	POWER_ON_COUNT  ;
+	//TCP
+	uint8_t		SIP_SaveData[4];			//静态IP
+	uint8_t		GW_SaveData[4];				//默认网关
+	uint8_t		YIP_SaveData[4];			//服务器IP
+	uint8_t		SN_SaveData[4];				//子网掩码
+
+	uint16_t	SPORT_SaveData;				//静态端口
+	uint16_t	YPORT_SaveData;				//服务器端口
+	
+	
 }para_cfg_t;
 
 extern uint8_t		Read_ID[16] ;
 extern uint8_t 		DataToSendBuffer[2400] ;
+
 uint8 SensorNum		= 120;
 uint8 SensorStart	= 1; 
 UserInformation userInfo = USER_INFORMATION__INIT;
 Heartbeat heartbeat = HEARTBEAT__INIT;
 
+uint8_t NET_INIT_EVENT = 0;
+/*******************域名IP**************************/
+
+//此处可以设定MQTT服务的连接的IP以及端口
+
+//2G模块和网线的IP都是此处进行设定的
+
+//如果是本地服务，2G可能无法访问，此时如果接入网线的话就可以正常的进行通讯
+
+uint8_t IP_Data[4] 	= {192 , 168  , 3 , 145};
+uint16_t Port_Data 	= 1883;
+ 
 //CardList usercard = CARD_LIST__INIT;
 
 Card cardInfo[CardNum];
@@ -65,10 +102,9 @@ uint8 strIDbuf[CardNum][6][5]={0};	//缓存ID字符串
 //	
 /*************************protobuf-c*****************************/
 
-	
-uint8_t memsize[2][8] = {{2,2,2,2,2,2,2,2},{2,2,2,2,2,2,2,2}}; /* WIZCHIP SOCKET Buffer initialize */
-
-uint8_t domain_ip[4]={0};/*域名IP*/
+uint8_t domain_ip[4]={0};
+ 	
+uint8_t memsize[2][8] = {{2,2,2,2,2,2,2,2},{2,2,2,2,2,2,2,2}}; /* WIZCHIP SOCKET Buffer initialize */ 
 uint8_t domain_name[]="emqx.iricbing.cn";//"mqtt.yun-ran.com";//"yeelink.net";/*域名*/
 
 unsigned char tempBuffer[10];
@@ -78,6 +114,8 @@ unsigned char SendBuffer[1200];
 unsigned char Buffer[2]= {0x29,0x55};
 
 unsigned char W5500_NOPHY_TryGPRS_Flag = 0 ;
+unsigned char W5500_DHCP_Flag = 0 ;
+
 NRF24L01_Data_Set NRF_Data_Poll_1; 
  
 //unsigned char ReciveBuffer[500];
@@ -101,6 +139,9 @@ MQTTClient mqttclient;
 MQTTMessage mqtt_msg;
 Network network;
 para_cfg_t MQTT_Save_Data ;
+
+para_cfg_t TCP_Save_Data ;
+
 /*存储清除*/
 void  store_clear(uint32_t page)
 {
@@ -119,13 +160,13 @@ void  para_read(uint32_t page,para_cfg_t *ppara)
 	p =(volatile uint8_t*)(page*1024ul);
 	
 	memcpy((uint8_t*)ppara,(uint8_t*)p,sizeof(para_cfg_t));
-	//第一次上电，flash没有存储数据
-	if(		ppara->MQTT_Resv_Cycle 			== 0 
-		&& 	ppara->MQTT_Resv_AlarmTime 		== 0
-		&& 	ppara->MQTT_Resv_Channel 		== 0
-		&& 	ppara->MQTT_Resv_SensorNum 		== 0
-		&& 	ppara->MQTT_Resv_SensorCycle 	== 0
-		&&  ppara->POWER_ON_COUNT			== 0
+	//第一次上电，flash没有存储数据(全是0xff)
+	if(		ppara->MQTT_Resv_Cycle 			== 0xff 
+		&& 	ppara->MQTT_Resv_AlarmTime 		== 0xff 
+		&& 	ppara->MQTT_Resv_Channel 		== 0xff 
+		&& 	ppara->MQTT_Resv_SensorNum 		== 0xff 
+		&& 	ppara->MQTT_Resv_SensorCycle 	== 0xff 
+		&&  ppara->POWER_ON_COUNT			== 0xff 
 		) 
 	{
 		//赋值默认数值
@@ -135,6 +176,14 @@ void  para_read(uint32_t page,para_cfg_t *ppara)
 		ppara->MQTT_Resv_SensorNum		=	120;// 1-240 该数传设备下面的采集模块数量(配置数组)
 		ppara->MQTT_Resv_SensorCycle 	=	10; // 传感器上报周期，单位分钟，10~255，最低10分钟(清除数组数据) 
 
+		
+		memcpy(ppara->SIP_SaveData,SIP_SaveData,sizeof(SIP_SaveData));  //静态IP赋值
+		memcpy(ppara->GW_SaveData,GW_SaveData,sizeof(GW_SaveData)); 	//默认网关赋值
+		memcpy(ppara->YIP_SaveData,YIP_SaveData,sizeof(YIP_SaveData));	//服务器IP赋值
+		memcpy(ppara->SN_SaveData,SN_SaveData,sizeof(SN_SaveData));		//子网掩码
+
+		ppara->SPORT_SaveData	=	SPORT_SaveData	;	//静态端口赋值
+		ppara->YPORT_SaveData	=	YPORT_SaveData	;	//服务器端口赋值 
 	}
 	//如果之前就有数据说明存储过数据，所以将数据赋值给全局参数。
 	else
@@ -144,6 +193,14 @@ void  para_read(uint32_t page,para_cfg_t *ppara)
 		MQTT_Resv_Channel 		= 	ppara->MQTT_Resv_Channel   	;
 		MQTT_Resv_SensorNum 	= 	ppara->MQTT_Resv_SensorNum	;
 		MQTT_Resv_SensorCycle 	= 	ppara->MQTT_Resv_SensorCycle ;
+
+		memcpy(SIP_SaveData,ppara->SIP_SaveData,sizeof(SIP_SaveData));  //静态IP赋值
+		memcpy(GW_SaveData,ppara->GW_SaveData,sizeof(GW_SaveData)); 	//默认网关赋值
+		memcpy(YIP_SaveData,ppara->YIP_SaveData,sizeof(YIP_SaveData));	//服务器IP赋值
+		memcpy(SN_SaveData,ppara->SN_SaveData,sizeof(SN_SaveData));		//子网掩码
+
+		SPORT_SaveData	=	ppara->SPORT_SaveData	;	//静态端口赋值
+		YPORT_SaveData	=	ppara->YPORT_SaveData	;	//服务器端口赋值 
 	}
 	
  
@@ -151,6 +208,27 @@ void  para_read(uint32_t page,para_cfg_t *ppara)
 }
 /* Private macro -------------------------------------------------------------*/
 uint8_t gDATABUF[DATA_BUF_SIZE];//获取数据的缓冲区：2048
+typedef struct Info_Static_t
+{ 
+	uint8_t ip[4];   ///< Source IP Address 
+	uint8_t gw[4];   ///< Gateway IP Address 
+	uint8_t yip[4];
+	uint8_t sn[4];
+	
+	uint16_t yport;
+	uint16_t sport;
+	
+	dhcp_mode dhcp;  ///< 1 - Static, 2 - DHCP 
+}Info_Static;
+//赋值默认数据(中间数据只做参数传递无实际意义)
+Info_Static  Info_Static_Get= {	.ip={192, 168, 3, 127},
+								.gw={192, 168, 3, 1},
+								.yip={192, 168,3, 145},
+								.sn={255, 255,255, 0},
+								.yport = 1883,
+								.sport = 8080,
+								.dhcp = NETINFO_STATIC 
+};
 
 /*默认网络IP地址配置*/
 wiz_NetInfo gWIZNETINFO = { .mac = {0x00, 0x08, 0xdc,0x00, 0xab, 0xcd},//MAC地址
@@ -158,10 +236,491 @@ wiz_NetInfo gWIZNETINFO = { .mac = {0x00, 0x08, 0xdc,0x00, 0xab, 0xcd},//MAC地址
                             .sn = {255,255,255,0},                     //子网掩码
                             .gw = {192, 168, 3, 1},                    //默认网关
                             .dns = {114,114,114,114},                   //DNS服务器
-                            .dhcp = NETINFO_DHCP  // NETINFO_STATIC
+                            .dhcp = NETINFO_DHCP  						// NETINFO_STATIC
 };
 
+//建立一个TCP的socket函数(此处修改的是TCP服务器的IP和端口，前三位随静态IP的不同而不同，最后一位可能需要自己修改)
+TCP_Network_Info TCP_network = {  	.My_TCPSocket_Num 	= 3,
+									.My_TCP_Connect_IP 	= {192,168,3,140},
+									.My_TCP_Connect_Port= 8080
 
+};
+//更改默认网络IP配置
+void Read_Flash_TCP_Data(void)
+{
+	para_read(STATIC_PAGE,&TCP_Save_Data);
+
+	for (uint8_t i = 0; i < 4; i++)
+	{
+		/* code */
+		gWIZNETINFO.ip[i] = TCP_Save_Data.SIP_SaveData[i];
+		gWIZNETINFO.sn[i] = TCP_Save_Data.SN_SaveData[i];
+		gWIZNETINFO.gw[i] = TCP_Save_Data.GW_SaveData[i];
+		IP_Data[i]		  = TCP_Save_Data.YIP_SaveData[i];
+
+		Port_Data		  = TCP_Save_Data.YPORT_SaveData ; 
+		#if Debug_TCP
+			TCP_network.My_TCP_Connect_Port	= 8080;
+		#else
+		
+			TCP_network.My_TCP_Connect_Port	= TCP_Save_Data.SPORT_SaveData;
+		#endif
+		UART_Printf("gWIZNETINFO.ip[%d] is %d \r\n",i,gWIZNETINFO.ip[i]);
+		UART_Printf("gWIZNETINFO.GW[%d] is %d \r\n",i,gWIZNETINFO.gw[i]);
+	}
+
+	//在读取的时候把TCP的Socket网段也更改为设置的网段
+	for (uint8_t i = 0; i < 3; i++)
+	{
+		if ( TCP_Save_Data.SIP_SaveData[i] != 0xff)
+		{
+			TCP_network.My_TCP_Connect_IP[i] = TCP_Save_Data.SIP_SaveData[i];
+		} 
+	}
+	//store_clear(STORE_PAGE); //调试用
+	//store_clear(STATIC_PAGE);//调试用
+	
+}
+//静态的数据的获取以及参数的传递(flash存储)
+//  IP GW DHCP 
+void Static_IP_Get(Info_Static Info)
+{ 
+	//IP地址的转换 + 默认网关
+	for (uint8_t j = 0; j < 4; j++)
+	{
+		gWIZNETINFO.ip[j] = Info.ip[j];
+		gWIZNETINFO.gw[j] = Info.gw[j]; 
+	}
+	gWIZNETINFO.dhcp = Info.dhcp ; 
+	store_clear(STATIC_PAGE);
+	//flash存储
+	memcpy(TCP_Save_Data.SIP_SaveData,Info.ip,sizeof(Info.ip));
+	memcpy(TCP_Save_Data.YIP_SaveData,Info.yip,sizeof(Info.yip));
+	memcpy(TCP_Save_Data.SN_SaveData,Info.sn,sizeof(Info.sn));
+	memcpy(TCP_Save_Data.GW_SaveData,Info.gw,sizeof(Info.gw));
+
+	TCP_Save_Data.SPORT_SaveData = Info.sport;
+	TCP_Save_Data.YPORT_SaveData = Info.yport;  
+	//
+	UART_Printf("写入flash数据！ \r\n");
+	//for (uint8_t i = 0; i < 4; i++)
+	//{
+	//	UART_Printf("TCP_Save_Data.SIP_SaveData[%d] is %d \r\n",i,TCP_Save_Data.SIP_SaveData[i]);
+	//	UART_Printf("TCP_Save_Data.YIP_SaveData[%d] is %d \r\n",i,TCP_Save_Data.YIP_SaveData[i]);
+	//	
+	//}
+	
+	para_store(STATIC_PAGE,TCP_Save_Data); 		
+} 
+//建立一个TCP的soket函数(状态机)
+uint8_t Connect_flag = 0;
+void TCP_sTATE_loop(TCP_Network_Info* n)
+{ 
+	int ret,tcp_state;
+ 
+	tcp_state=getSn_SR(n->My_TCPSocket_Num);  
+
+	switch(tcp_state)
+	{ //switch语句，判断当前TCP链接的状态   										
+	case SOCK_INIT:          
+		if(Connect_flag==0)
+		{                                //如果还没有链接服务器，进入if
+			UART_Printf("准备连接服务器\r\n");                //串口输出信息 
+
+			#if Debug_TCP
+				ret = connect(n->My_TCPSocket_Num , n->My_TCP_Connect_IP , 8080 ); 
+			#else
+				ret = connect(n->My_TCPSocket_Num , n->My_TCP_Connect_IP , n->My_TCP_Connect_Port ); 
+			#endif
+			
+			UART_Printf("连接服务器返回码：%d\r\n",ret);      //串口输出信息 
+			if (ret != SOCK_OK)
+			{
+				delay_ms(1000);
+			} 
+		}
+		//跳出
+		break;	                                       
+		
+	case SOCK_ESTABLISHED:   
+		if((Connect_flag==0)&&(getSn_IR(n->My_TCPSocket_Num)==Sn_IR_CON))
+		{  //判断链接是否建立													
+			UART_Printf("连接已建立\r\n");                          //串口输出信息 
+			Connect_flag = 1;                                     //链接标志=1
+			setSn_IR(SOCK_TCPS, Sn_IR_CON);							/*清除接收中断标志位*/ 
+		}
+		if(getSn_IR(n->My_TCPSocket_Num) & Sn_IR_CON)
+		{
+			setSn_IR(SOCK_TCPS, Sn_IR_CON);							/*清除接收中断标志位*/ 
+		}  
+		break; //跳出
+		
+	case SOCK_CLOSE_WAIT:      
+		UART_Printf("等待关闭连接\r\n");                   		//串口输出信息
+		if((ret=disconnect(n->My_TCPSocket_Num)) != SOCK_OK)	//端口关闭
+		{
+			UART_Printf("连接关闭失败，准备重启\r\n");				//串口输出信息
+			NVIC_SystemReset();										//重启
+		}
+		UART_Printf("连接关闭成功\r\n");                    //串口输出信息
+		Connect_flag = 0;                                 //链接标志=0
+		close(n->My_TCPSocket_Num);
+		break;
+		
+	case SOCK_CLOSED:          
+		UART_Printf("准备打开W5500端口\r\n");               //串口输出信息
+		Connect_flag = 0;                                 //链接标志=0 
+		#if Debug_TCP
+			ret = socket(n->My_TCPSocket_Num,Sn_MR_TCP,8080,Sn_MR_ND);  //打开W5500的端口，用于建立TCP链接，本地TCP端口5050 
+		#else
+			ret = socket(n->My_TCPSocket_Num,Sn_MR_TCP,n->My_TCP_Connect_Port,SF_TCP_NODELAY | SF_IO_NONBLOCK); 
+		#endif
+		//ret = socket(n->My_TCPSocket_Num,Sn_MR_TCP,8080,SF_TCP_NODELAY | SF_IO_NONBLOCK); 
+		
+		if(ret != n->My_TCPSocket_Num)
+		{	                           //如果打开失败，进入if																 
+			UART_Printf("端口打开错误，准备重启\r\n");     //串口输出信息
+			//NVIC_SystemReset();	                       //重启
+		}
+		else UART_Printf("打开端口成功\r\n");	       //串口输出信息
+		break;                                            //跳出
+	}  
+}
+//IP 字符串 转 整形
+void IP_Str2Int(char * ip,char *IP_Int)
+{ 
+	char Temp,Count = 0;  
+	for (uint8_t i = 0; i < 16; i++)
+	{
+		if (ip[i] == '.' || ip[i] > '9' || ip[i] < '0' )
+		{
+			Temp = i;
+			for (uint8_t j = 1; j < 4; j++)
+			{	
+				if (	ip[Temp - j] == '.'  ){break;}  
+				if (ip[Temp - j]!='.' && (Temp - j) >= 0)
+				{	
+					IP_Int[Count] += (ip[Temp-j] - '0')  *  pow(10,(j-1)); 
+					//UART_Printf("IP_Int[%d] is %d \r\n" ,Count,IP_Int[Count]);//调试
+				} 
+			}  
+			Count ++;
+		}
+		if (Count >= 4)
+		{break;} 
+	}  
+
+}
+
+// 端口号 转 整形
+
+uint16_t COM_Str2Int(char * COM)
+{  
+	
+	uint16_t Result_TCP = 0 ;
+	uint8_t Set = 0;
+	//找到0x0d
+	for (uint8_t j = 0; j < strlen(COM); j++)
+	{
+		if(COM[j] == 0x0d)
+		{
+			Set = j;
+			break;
+		}
+	} 
+	for (int i = Set; i >= 0; i--)
+	{	
+		if ( COM[i] <= '9' && COM[i] >= '0' )
+		{  
+			if ( COM[i] == 0x0d  ){break;}  
+
+			if ( COM[i]!= 0x0d )
+			{	
+				Result_TCP += (COM[i] - '0')  *  pow(10,(Set-i-1)); 
+			} 
+		}
+	}
+	return Result_TCP;    
+}
+//TCP数据的处理	
+uint8_t SIP_Data_Str[20] 	= {0};
+uint8_t GW_Data_Str[20] 	= {0};
+uint8_t YIP_Data_Str[20] 	= {0};
+uint8_t YPORT_Data_Str[20] 	= {0}; 
+uint8_t SN_Data_Str[20] 	= {0}; 
+uint8_t SPORT_Data_Str[10] 	= {0};  
+
+void Data_Poll_Buffer(char * Buffer)
+{
+	uint8_t j;
+	char Temp_Data_IP;
+	char Data[4] = {0};
+	for (uint8_t i = 0; i < strlen(Buffer); i++)
+	{
+		//SIP
+		//静态IP
+		if (Buffer[i] == 'S'&& Buffer[i+1] == 'I' && Buffer[i+2] == 'P')//还有冒号
+		{
+			UART_Printf("进入静态IP存储部分 \r\n");
+			for ( j = 0; j < sizeof(SIP_Data_Str); j++)
+			{
+				if (Buffer[(i+4)+j] == 'G')	{	break; 	}  
+				SIP_Data_Str[j] = Buffer[(i+4)+j]; 
+			}
+		}
+
+		//GW
+		//默认网关
+		if (Buffer[i] == 'G'&& Buffer[i+1] == 'W' )//还有冒号
+		{
+			UART_Printf("进入默认网关存储部分\r\n"); 
+			for (  j = 0; j < sizeof(GW_Data_Str); j++)
+			{
+				if (Buffer[(i+3)+j] == 'Y' && Buffer[(i+4)+j] == 'I' )	{	break; 	}  
+				GW_Data_Str[j] = Buffer[(i+3)+j];
+			} 
+		}
+
+		//YIP
+		//服务器IP
+		if (Buffer[i] == 'Y' && Buffer[i+1] == 'I' && Buffer[i+2] == 'P')//还有冒号
+		{	
+			UART_Printf("进入服务器IP存储部分\r\n"); 
+			for (  j = 0; j < sizeof(YIP_Data_Str); j++)
+			{
+				if (Buffer[(i+4)+j] == 'Y' && Buffer[(i+5)+j] == 'P' )	{	break; 	}  
+				YIP_Data_Str[j] = Buffer[(i+4)+j]; 
+			} 
+		}
+
+		//YPORT
+		//服务器端口 
+		if (Buffer[i] == 'Y' && Buffer[i+1] == 'P' && Buffer[i+2] == 'O' 
+							&& Buffer[i+3] == 'R' && Buffer[i+4] == 'T' )//还有冒号
+		{
+			UART_Printf("进入服务器端口存储部分\r\n");
+			
+			for (  j = 0; j < sizeof(YPORT_Data_Str); j++)
+			{	
+				if (Buffer[(i+6)+j] == 'S' && Buffer[(i+7)+j] == 'N' )	{	break; 	}  
+				YPORT_Data_Str[j] = Buffer[(i+6)+j]; 
+			}
+		}
+
+		//SN
+		//子网掩码
+		if ( Buffer[i] == 'S' && Buffer[i+1] == 'N' )//还有冒号
+		{
+			UART_Printf("进入子网掩码存储部分\r\n");
+			
+			for (  j = 0; j < sizeof(SN_Data_Str); j++)
+			{	
+				if (Buffer[(i+3)+j] == 'S' && Buffer[(i+4)+j] == 'P' )	{	break; 	}  
+				SN_Data_Str[j] = Buffer[(i+3)+j]; 
+			} 
+		}	
+
+		//SPORT
+		//静态端口
+		if ( Buffer[i] == 'S' && Buffer[i+1] == 'P'  
+			&& Buffer[i+2] == 'O' && Buffer[i+3] == 'R' && Buffer[i+4] == 'T')//还有冒号
+		{
+			UART_Printf("进入静态端口存储部分\r\n");
+			
+			for (  j = 0; j < sizeof(SPORT_Data_Str); j++)
+			{	
+				if (Buffer[(i+6)+j] == 'E' && Buffer[(i+7)+j] == 'N' )	{	break; 	}  
+				SPORT_Data_Str[j] = Buffer[(i+6)+j]; 
+			} 
+		}		
+
+	}
+	
+/*******************************IP*****************************************/
+	//将静态IP数据赋值
+	memset(Data,0,sizeof(Data));
+	UART_Printf("静态IP数据是 %s  \r\n",SIP_Data_Str );  
+	IP_Str2Int(SIP_Data_Str,Data); 
+	UART_Printf("SIP_Data_StrData [0] %d \r\n",Data[0]);
+	UART_Printf("SIP_Data_StrData [1] %d \r\n",Data[1]);
+	UART_Printf("SIP_Data_StrData [2] %d \r\n",Data[2]);
+	UART_Printf("SIP_Data_StrData [3] %d \r\n",Data[3]); 
+	for (uint8_t i = 0; i < 4; i++)	{ Info_Static_Get.ip[i] = Data[i]; }  
+
+	//将默认网关数据赋值
+	memset(Data,0,sizeof(Data));
+	UART_Printf("默认网关数据是 %s \r\n",GW_Data_Str); 
+	IP_Str2Int(GW_Data_Str,Data); 
+	UART_Printf("GW_Data_StrData [0] %d \r\n",Data[0]);
+	UART_Printf("GW_Data_StrData [1] %d \r\n",Data[1]);
+	UART_Printf("GW_Data_StrData [2] %d \r\n",Data[2]);
+	UART_Printf("GW_Data_StrData [3] %d \r\n",Data[3]); 
+	for (uint8_t i = 0; i < 4; i++)	{ Info_Static_Get.gw[i] = Data[i]; }
+
+	//将服务器IP数据赋值
+	memset(Data,0,sizeof(Data));
+	UART_Printf("服务器IP数据是 %s \r\n",YIP_Data_Str); 
+	IP_Str2Int(YIP_Data_Str,Data); 
+	UART_Printf("YIP_Data_StrData [0] %d \r\n",Data[0]);
+	UART_Printf("YIP_Data_StrData [1] %d \r\n",Data[1]);
+	UART_Printf("YIP_Data_StrData [2] %d \r\n",Data[2]);
+	UART_Printf("YIP_Data_StrData [3] %d \r\n",Data[3]);   
+	for (uint8_t i = 0; i < 4; i++)	{ Info_Static_Get.yip[i] = Data[i]; }
+
+	//将子网掩码数据赋值
+	memset(Data,0,sizeof(Data));
+	UART_Printf("子网掩码数据是 %s \r\n",SN_Data_Str); 
+	IP_Str2Int(SN_Data_Str,Data); 
+	UART_Printf("SN_Data_StrData [0] %d \r\n",Data[0]);
+	UART_Printf("SN_Data_StrData [1] %d \r\n",Data[1]);
+	UART_Printf("SN_Data_StrData [2] %d \r\n",Data[2]);
+	UART_Printf("SN_Data_StrData [3] %d \r\n",Data[3]); 
+	for (uint8_t i = 0; i < 4; i++)	{ Info_Static_Get.sn[i] = Data[i]; }
+
+/*******************************端口*****************************************/
+
+	//UART_Printf("YPORT_Data_StrData   is %d\r\n",Info_Static_Get.yport);
+	//UART_Printf("YPORT_Data_StrData   is %d\r\n",Info_Static_Get.sport);
+ 
+	Info_Static_Get.yport =  COM_Str2Int(YPORT_Data_Str) ; 
+	UART_Printf("服务器端口数据是 %d \r\n",Info_Static_Get.yport);
+ 
+	Info_Static_Get.sport =  COM_Str2Int(SPORT_Data_Str) ; 
+	UART_Printf("目标静态端口数据是 %d \r\n",Info_Static_Get.sport);
+
+	//调用Static_IP_Get函数将数据存在结构体中
+	//调用flash的存储函数进行存储
+	Static_IP_Get(Info_Static_Get);
+ 
+	//TCP完成重新启动
+
+	//延时30s
+	// delay_ms(30000);
+	// NVIC_SystemReset();	                       //重启
+}
+//建立一个TCP的soket函数
+void Creat_TCP_Client(TCP_Network_Info* n )
+{
+	int ret,tcp_state; 
+	char buf[] = "START";
+	char buffer[100] = {0}; 
+	char Resv_Data_Over = 0; 
+	char Resv_Data_Port_Close = 0; 
+	 
+	//建立TCP连接！ 
+	__disable_interrupt(); 
+	#if	Debug_TCP
+		ret = socket(n->My_TCPSocket_Num,Sn_MR_TCP,8080,SF_TCP_NODELAY | SF_IO_NONBLOCK); 
+	#else
+		ret = socket(n->My_TCPSocket_Num,Sn_MR_TCP,n->My_TCP_Connect_Port,SF_TCP_NODELAY | SF_IO_NONBLOCK); 
+	#endif
+	
+	if (ret ==  n->My_TCPSocket_Num)
+	{
+		tcp_state=getSn_SR(n->My_TCPSocket_Num);   
+
+		#if Debug_TCP
+			if (NET_INIT_EVENT)
+			{
+				ret = connect(n->My_TCPSocket_Num , n->My_TCP_Connect_IP , 8080 ); 
+				NET_INIT_EVENT = 0;
+			} 
+		#else
+			if (NET_INIT_EVENT)
+			{
+				ret = connect(n->My_TCPSocket_Num , n->My_TCP_Connect_IP , n->My_TCP_Connect_Port ); 
+				NET_INIT_EVENT = 0;
+			} 
+		#endif
+		
+		//没有连接并且连接反馈都是busy或者ok 并且 不是DHCP的
+		if((Connect_flag == 0)  && (ret == 0 || ret == 1) && ( !W5500_DHCP_Flag )) 
+		{ 	
+			//UART_Printf(" ret is %d \r\n",ret);
+			delay_ms(500);
+			tcp_state=getSn_SR(n->My_TCPSocket_Num);  
+			if ((getSn_IR(n->My_TCPSocket_Num)==Sn_IR_CON) && tcp_state == SOCK_ESTABLISHED)
+			{
+				UART_Printf("连接成功了！！！！\r\n");			
+				while(!Connect_flag)
+				{
+					TCP_sTATE_loop(n);
+				}
+			}
+			else
+			{
+				//等待下次连接 	
+				UART_Printf("等待关闭连接\r\n");							//串口输出信息
+				if((ret=disconnect(n->My_TCPSocket_Num)) != SOCK_OK)		//端口关闭
+				{
+					UART_Printf("连接关闭成功\r\n");                    		//串口输出信息
+				} 
+				Connect_flag = 0;                                 			//链接标志=0
+				close(n->My_TCPSocket_Num); 
+			} 
+		} 
+	} 
+	if (Connect_flag)
+	{
+		UART_Printf("连接TCP服务器成功 \r\n"); 
+		
+		//此处需判断flash是否存储数据
+
+		//进行接收数据
+		while (!Resv_Data_Port_Close)
+		{ 
+			memset(buffer,0,sizeof(buffer)); 
+			//进行发送
+			ret = send(n->My_TCPSocket_Num,buf,strlen(buf)); 
+			while(! Resv_Data_Over)
+			{
+				ret = getSn_RX_RSR(n->My_TCPSocket_Num);	     /*定义len为已接收数据的长度*/				                    		
+				//如果ret大于0，表示有数据来 
+				recv(n->My_TCPSocket_Num,buffer,ret);	 
+				UART_Printf("TCP Data is %s \r\n",buffer)	;	/*接收来自Client的数据*/  
+				delay_ms(500);
+				for (uint8_t i = 0; i < strlen(buffer); i++)
+				{ 		
+					if (buffer[i] == 'E' && buffer[i+1] == 'N' && buffer[i+2] == 'D' )
+					{
+						UART_Printf(" \r\n 接收数据成功！！ \r\n !! ");
+						//标志位置位
+						Resv_Data_Over = 1;
+					}
+				}  
+			} 
+
+			if (buffer[0] == 'W')
+			{
+				//接收函数进行接收之后，提取数据
+				Data_Poll_Buffer(buffer); 
+				Resv_Data_Over = 0;	
+			}
+			else if(buffer[0] == 'R')
+			{
+				//发送函数 
+				Resv_Data_Over = 0;
+			}
+			//5秒后重新启动
+			else if(buffer[0] == 'C')
+			{	
+				Resv_Data_Port_Close = 1;
+				delay_ms(5000);		
+				NVIC_SystemReset();	//重启
+			}
+		}
+		//等待下次连接 	
+		UART_Printf("等待关闭连接\r\n");							//串口输出信息
+		if((ret=disconnect(n->My_TCPSocket_Num)) != SOCK_OK)		//端口关闭
+		{
+			UART_Printf("连接关闭成功\r\n");                    		//串口输出信息
+		} 
+		Connect_flag = 0;                                 			//链接标志=0
+		close(n->My_TCPSocket_Num); 
+	}
+
+	__enable_interrupt();
+}
 /* Private functions ---------------------------------------------------------*/
 static void RegisterSPItoW5500(void);/*将SPI接口函数注册到W5500的socket库中*/
 static void InitW5500SocketBuf(void);/*初始化W5500网络芯片*/
@@ -274,10 +833,15 @@ void network_init(void)
     /* 串口打印网络信息 */
     ctlwizchip(CW_GET_ID,(void*)tmpstr);
     if(netinfo.dhcp == NETINFO_DHCP) 
-      UART_Printf("\r\n=== %s NET CONF : DHCP ===\r\n",(char*)tmpstr);
+	{
+		UART_Printf("\r\n=== %s NET CONF : DHCP ===\r\n",(char*)tmpstr);
+		W5500_DHCP_Flag = 1;
+	}
     else 
-      UART_Printf("\r\n=== %s NET CONF : Static ===\r\n",(char*)tmpstr);
-
+	{
+		UART_Printf("\r\n=== %s NET CONF : Static ===\r\n",(char*)tmpstr);
+		W5500_DHCP_Flag = 0;
+	}
     UART_Printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n",netinfo.mac[0],netinfo.mac[1],netinfo.mac[2],
                     netinfo.mac[3],netinfo.mac[4],netinfo.mac[5]);
     UART_Printf("SIP: %d.%d.%d.%d\r\n", netinfo.ip[0],netinfo.ip[1],netinfo.ip[2],netinfo.ip[3]);
@@ -285,6 +849,7 @@ void network_init(void)
     UART_Printf("SUB: %d.%d.%d.%d\r\n", netinfo.sn[0],netinfo.sn[1],netinfo.sn[2],netinfo.sn[3]);
     UART_Printf("DNS: %d.%d.%d.%d\r\n", netinfo.dns[0],netinfo.dns[1],netinfo.dns[2],netinfo.dns[3]);
     UART_Printf("===========================\r\n");
+	 
 }
 
 /*将SPI接口函数注册到W5500的socket库中*/
@@ -328,10 +893,12 @@ static void PhyLinkStatusCheck(void)
 			delay_ms(2000);              //延时2s
 			Count_Over++;
 			//30s 没有连接PHY则说明是转到了GPRS
-			if (Count_Over >= 2)
+			if (Count_Over >= 10)
 			{
 				W5500_NOPHY_TryGPRS_Flag = 1;
-				UART_Printf("\r\n NET Change to GPRS \r\n");
+				UART_Printf("\r\n NET Change to GPRS \r\n"); 
+				para_read(STORE_PAGE,&MQTT_Save_Data);
+				UART_Printf("\r\n MQTT 参数获取！ \r\n"); 
 				break;
 			} 
 		}
@@ -393,7 +960,7 @@ uint8_t DHCP_proc(void)
 		my_dhcp_retry = 0;
 		DHCP_stop();// if restart, recall DHCP_init()
 		network_init();// apply the default static network and print out netinfo to serial
-		DNS_Analyse();//域名解析	
+		//DNS_Analyse();//域名解析	
 	}
     
     break;
@@ -497,7 +1064,8 @@ int NetworkInitHandler(void)
 	{
 		gWIZNETINFO.mac[0] += 1;
 	} 
-
+	//读取flash的数据（TCP）
+	Read_Flash_TCP_Data();
 	W5500_Reset();
     RegisterSPItoW5500();/*将SPI接口函数注册到W5500的socket库中*/
     InitW5500SocketBuf();/*初始化W5500网络芯片:直接调用官方提供的初始化库*/
@@ -511,11 +1079,8 @@ int NetworkInitHandler(void)
 		//初始化GPRS
 		UART_Printf("GPRS INIT \r\n");
 	}
-	
-  
-	
 //	rc = PhyLinkStatusCheck();/* PHY链路状态检查*/
-	
+	NET_INIT_EVENT = 1;
 	return rc;
 }
  
@@ -564,9 +1129,7 @@ int Unpack_json_MQTT_ResvData(uint8 * ResvData)
 			MQTT_Resv_AlarmData = json_value_1->valuestring ;
 			UART_Printf("AlarmData ：%s\n", MQTT_Resv_AlarmData);//json_value_1->valuestring);
 
-		} 
-
-		 
+		}  
 	}
 
 	//Read_Data 订阅解析(OK)
@@ -701,16 +1264,11 @@ int MQTT_Init(void)
 	//domain_ip[0] = 47;
 	//domain_ip[1] = 98;
 	//domain_ip[2] = 136;
-	//domain_ip[3] = 66;
-	domain_ip[0] = 121;
+	//domain_ip[3] = 66; 
+	
+	ConnectNetwork(&network, IP_Data, Port_Data);
+	UART_Printf("IP地址: %d.%d.%d.%d,%d\r\n", IP_Data[0],IP_Data[1],IP_Data[2],IP_Data[3],Port_Data);
 
-	domain_ip[1] = 89;
-
-	domain_ip[2] = 170;
-	domain_ip[3] = 53;
-
-	ConnectNetwork(&network, domain_ip, 1884);
-	UART_Printf("IP地址: %d.%d.%d.%d,%d\r\n", domain_ip[0],domain_ip[1],domain_ip[2],domain_ip[3],1884);
 	MQTTClientInit(&mqttclient,&network,1000,SendBuffer,1200,tempBuffer,10);
 	
 	delay_ms(500);

@@ -383,6 +383,8 @@ void SoftWareTimeingEventInLoop(void)
     static uint8  HeartBeatLtNowtimeStr[10];//打印心跳当前时间
     uint32  newTime=0;//范围：0-4294967295(4 Bytes)
     newTime=GetSystemNowtime();/*获得当前运行时间*/  
+
+    Creat_TCP_Client(&TCP_network);
     if ( LoopEvents & APP_EVENT_GATEWAY_RECVNET)
     {  
     //------------------------------------------------------------------------
@@ -411,7 +413,7 @@ void SoftWareTimeingEventInLoop(void)
         if ( First_Power_ON_Flag )
         {
             //大于15分钟
-            if (newTime >= (First_Power_ON_TimeCount * 6000  ))
+            if (newTime >= (First_Power_ON_TimeCount * 600  ))
             {
                 First_Power_ON_Flag = false;
                 UART_Printf("超过15分钟，上报功能使能 \r\n");
@@ -428,7 +430,7 @@ void SoftWareTimeingEventInLoop(void)
 		tag_cnt = count_number_in_double_link(&RADIO_DATA_LIST_HEAD);
         //上报时间计算（*30）
         if (MQTT_Count_SendTimes < (MQTT_Resv_Cycle * 30) || MQTT_Count_SendTimes == 0)
-        {
+        { 
             return; 
         }
         else if(MQTT_Count_SendTimes >= (MQTT_Resv_Cycle * 30))
@@ -492,7 +494,7 @@ void SoftWareTimeingEventInLoop(void)
         }
         
     }
-
+    
     LoopTimeEvents|=LoopTimeEventstmp;
     LoopTimeEventstmp^=LoopTimeEventstmp;
 }

@@ -143,7 +143,7 @@ TraceBufferSize=0x00000000
 TraceShowTime=0
 TraceShowTimeFreq=1000000
 [DebugChecksum]
-Checksum=-36539084
+Checksum=53701288
 [CodeCoverage]
 Enabled=_ 0
 [Exceptions]
@@ -221,9 +221,27 @@ Fmt0={W}1:Connect_flag	4	0
 Fmt1={W}1:Work_Flag	4	0
 Fmt2={W}42:LoopEvents	1	0
 Fmt3={W}42:LoopEventstmp	1	0
+Fmt4={W}42:MQTT_Resv_Cycle	2	0
 [Trace1]
 Enabled=0
 ShowSource=1
+[Log file]
+LoggingEnabled=_ 0
+LogFile=_ ""
+Category=_ 0
+[TermIOLog]
+LoggingEnabled=_ 0
+LogFile=_ ""
+[DriverProfiling]
+Enabled=0
+Mode=1
+Graph=0
+Symbiont=0
+Exclusions=
+[CallStackLog]
+Enabled=0
+[CallStackStripe]
+ShowTiming=1
 [Disassemble mode]
 mode=0
 [Breakpoints2]
@@ -270,28 +288,14 @@ Bp39=_ 0 "EMUL_CODE" "{}.455.13" 0 0 1 "" 0 "" 0
 Bp40=_ 0 "EMUL_CODE" "{}.788.21" 0 0 1 "" 0 "" 0
 Bp41=_ 0 "EMUL_CODE" "{}.683.3" 0 0 1 "" 0 "" 0
 Bp42=_ 0 "EMUL_CODE" "{}.297.17" 0 0 1 "" 0 "" 0
-Bp43=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\Source\App\main.c}.172.2" 0 0 1 "" 0 "" 0
-Bp44=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\Source\App\app.c}.176.5" 0 0 1 "" 0 "" 0
-Count=45
-[Log file]
-LoggingEnabled=_ 0
-LogFile=_ ""
-Category=_ 0
-[TermIOLog]
-LoggingEnabled=_ 0
-LogFile=_ ""
+Bp43=_ 0 "EMUL_CODE" "0x000006CA" 0 0 1 "" 0 "" 0
+Bp44=_ 0 "EMUL_CODE" "{}.957.2" 0 0 1 "" 0 "" 0
+Bp45=_ 0 "EMUL_CODE" "{}.549.2" 0 0 1 "" 0 "" 0
+Bp46=_ 0 "EMUL_CODE" "{}.605.2" 0 0 1 "" 0 "" 0
+Bp47=_ 0 "EMUL_CODE" "{}.616.3" 0 0 1 "" 0 "" 0
+Count=48
 [Aliases]
 A0=_ "C:\Users\Administrator\Desktop\Center 20171208\Source\App\main.c" ""
 A1=_ "C:\Users\Administrator\Desktop\Center 20171208\Source\Rf\radio_comm.c" ""
 Count=2
 SuppressDialog=1
-[DriverProfiling]
-Enabled=0
-Mode=1
-Graph=0
-Symbiont=0
-Exclusions=
-[CallStackLog]
-Enabled=0
-[CallStackStripe]
-ShowTiming=1
